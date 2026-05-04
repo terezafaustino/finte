@@ -22,6 +22,9 @@ const CATEGORY_KEYWORDS = {
   beleza_estetica:  ['salão', 'salao', 'barbearia', 'estética', 'estetica', 'manicure', 'cabeleireiro', 'studio', 'spa', 'maquiagem', 'dermato', 'waxing', 'by kamy', 'sephora', 'o boticário', 'boticario', 'natura', 'avon', 'beleza'],
   presentes:        ['presente', 'doação', 'doacao', 'gift', 'flores', 'buque', 'zee.dog', 'fnac', 'livraria', 'saraiva', 'cultura'],
   pets:             ['petshop', 'petz', 'cobasi', 'ração', 'racao', 'pet ', 'veterinário', 'vet ', 'aquário'],
+  educacao:         ['escola', 'faculdade', 'universidade', 'curso', 'mensalidade', 'matrícula', 'colegio', 'colégio', 'alura', 'udemy', 'coursera', 'rocketseat', 'kumon', 'inglês', 'ingles', 'aula '],
+  seguros:          ['prudential', 'seguro', 'seguradora', 'porto seguro', 'bradesco seguros', 'sulamerica', 'zurich', 'allianz', 'mapfre', 'tokio marine', 'vida segur', 'previdência'],
+  iof:              ['iof', 'imp. s/ oper', 'imposto operacao', 'imposto operação', 'tributo federal'],
 }
 
 export function autoCategory(description) {
@@ -121,7 +124,9 @@ function parseGeneric(lines, year) {
     if (/total|saldo|limite|vencimento|pagamento mínimo|fatura|bandeira|agência|conta corrente/.test(lower)) return
 
     const dateM = line.match(datePattern)
-    const amtM  = line.match(/(\d{1,3}(?:\.\d{3})*,\d{2})/)
+    // Pega todos os valores em formato BRL (1.234,56) e usa o ÚLTIMO — ignora colunas USD
+    const allAmts = [...line.matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2})/g)]
+    const amtM = allAmts.length > 0 ? allAmts[allAmts.length - 1] : null
     if (!dateM || !amtM) return
 
     const date   = parseDate(dateM[0], year)

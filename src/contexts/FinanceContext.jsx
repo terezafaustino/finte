@@ -41,6 +41,9 @@ export const CARD_CATEGORIES = [
   { id: 'beleza_estetica',  label: 'Beleza & Estética',      color: '#D946EF', icon: '💅' },
   { id: 'presentes',        label: 'Presentes e Doações',    color: '#EF4444', icon: '🎁' },
   { id: 'pets',             label: 'Pets',                   color: '#84CC16', icon: '🐾' },
+  { id: 'educacao',         label: 'Educação',               color: '#3B82F6', icon: '📚' },
+  { id: 'seguros',          label: 'Seguros (Prudential)',   color: '#0EA5E9', icon: '🛡️' },
+  { id: 'iof',              label: 'IOF',                    color: '#DC2626', icon: '🧾' },
   { id: 'diversos',         label: 'Imprevistos/Diversos',   color: '#94A3B8', icon: '❓' },
 ]
 
