@@ -14,24 +14,31 @@ export default function Entradas() {
 
   const currentMonthNum = parseInt(currentMonth.split('-')[1])
 
-  // Retorna valor a exibir no input: edição em andamento > valor salvo no mês > valor base config
+  // Retorna valor real do mês (salvo no Firebase) ou base da config
+  const getRealAmount = (inc) => {
+    const rec = getRecord(inc.id)
+    return rec?.amount ?? inc.amount ?? 0
+  }
+
+  // Retorna string para exibir no input: edição em andamento > valor real salvo > vazio
   const getDisplayAmt = (inc) => {
     if (editAmounts[inc.id] !== undefined) return editAmounts[inc.id]
     const rec = getRecord(inc.id)
-    return rec?.amount ?? inc.amount ?? ''
+    const val = rec?.amount ?? inc.amount ?? ''
+    return val === '' ? '' : String(val)
   }
 
-  // Totais base (config)
-  const baseT = incomes.filter(i => i.person === 'tereza').reduce((a, i) => a + (i.amount || 0), 0)
-  const baseS = incomes.filter(i => i.person === 'sebastiao').reduce((a, i) => a + (i.amount || 0), 0)
+  // Totais reais do mês (valores digitados/salvos no Firebase)
+  const realT = incomes.filter(i => i.person === 'tereza').reduce((a, i) => a + getRealAmount(i), 0)
+  const realS = incomes.filter(i => i.person === 'sebastiao').reduce((a, i) => a + getRealAmount(i), 0)
 
-  // 13º este mês
+  // 13º este mês (com valor real)
   const thirteenthT = incomes
     .filter(i => i.person === 'tereza' && i.hasThirteenth && (i.thirteenthMonth || 12) === currentMonthNum)
-    .reduce((a, i) => a + (i.amount || 0), 0)
+    .reduce((a, i) => a + getRealAmount(i), 0)
   const thirteenthS = incomes
     .filter(i => i.person === 'sebastiao' && i.hasThirteenth && (i.thirteenthMonth || 12) === currentMonthNum)
-    .reduce((a, i) => a + (i.amount || 0), 0)
+    .reduce((a, i) => a + getRealAmount(i), 0)
 
   // Recebido no mês — só entradas marcadas como received:true
   const recT = recorded
@@ -41,13 +48,15 @@ export default function Entradas() {
     .filter(r => r.received === true && incomes.find(i => i.id === r.id && i.person === 'sebastiao'))
     .reduce((a, r) => a + (r.amount || 0), 0)
 
+  // Parseia string digitada aceitando vírgula ou ponto como separador decimal
+  const parseAmt = (str) => parseFloat(String(str).replace(',', '.')) || 0
+
   // Toggle recebido (preserva o valor já digitado)
   const handleToggle = async (inc) => {
-    const rec       = getRecord(inc.id)
-    const nowRec    = !isReceived(inc.id)
-    const editVal   = editAmounts[inc.id]
-    const amount    = editVal !== undefined
-      ? (parseFloat(editVal) || 0)
+    const rec    = getRecord(inc.id)
+    const nowRec = !isReceived(inc.id)
+    const amount = editAmounts[inc.id] !== undefined
+      ? parseAmt(editAmounts[inc.id])
       : (rec?.amount ?? inc.amount ?? 0)
     await saveIncome(inc.id, nowRec, amount)
   }
@@ -55,16 +64,16 @@ export default function Entradas() {
   // Salvar valor ao sair do campo (independente do toggle)
   const handleAmountBlur = async (inc) => {
     const raw = editAmounts[inc.id]
-    if (raw === undefined) return                        // sem edição — nada a fazer
-    const val = parseFloat(raw) || 0
-    await saveIncome(inc.id, isReceived(inc.id), val)   // preserva status received
+    if (raw === undefined) return
+    const val = parseAmt(raw)
+    await saveIncome(inc.id, isReceived(inc.id), val)
     setEditAmounts(p => { const n = { ...p }; delete n[inc.id]; return n })
   }
 
   const tereza    = incomes.filter(i => i.person === 'tereza')
   const sebastiao = incomes.filter(i => i.person === 'sebastiao')
 
-  const PersonBlock = ({ personLabel, items, color, avatar, base, thirteenth, received }) => (
+  const PersonBlock = ({ personLabel, items, color, avatar, real, thirteenth, received }) => (
     <div className="card">
       {/* Cabeçalho */}
       <div className="flex items-center justify-between mb-20">
@@ -73,7 +82,7 @@ export default function Entradas() {
           <div>
             <div style={{ fontWeight: 800, fontSize: 16 }}>{personLabel}</div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-              Base: {formatBRL(base)}
+              Lançado: {formatBRL(real)}
               {thirteenth > 0 && ` · 13º: ${formatBRL(thirteenth)}`}
             </div>
           </div>
@@ -86,7 +95,7 @@ export default function Entradas() {
 
       {items.map(inc => {
         const rec          = getRecord(inc.id)
-        const received     = isReceived(inc.id)
+        const recv         = isReceived(inc.id)
         const displayAmt   = getDisplayAmt(inc)
         const isThirteenth = inc.hasThirteenth && (inc.thirteenthMonth || 12) === currentMonthNum
 
@@ -99,9 +108,9 @@ export default function Entradas() {
           >
             {/* Toggle recebido */}
             <button
-              className={`toggle ${received ? 'on' : 'off'}`}
+              className={`toggle ${recv ? 'on' : 'off'}`}
               onClick={() => handleToggle(inc)}
-              title={received ? 'Desmarcar recebimento' : 'Marcar como recebido'}
+              title={recv ? 'Desmarcar recebimento' : 'Marcar como recebido'}
             />
 
             {/* Info */}
@@ -114,7 +123,7 @@ export default function Entradas() {
                   </span>
                 )}
                 {isThirteenth && <span className="badge badge-green" style={{ fontSize: 10 }}>+13º este mês</span>}
-                {received && rec?.recordedAt && (
+                {recv && rec?.recordedAt && (
                   <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                     Recebido em {new Date(rec.recordedAt).toLocaleDateString('pt-BR')}
                   </span>
@@ -122,16 +131,17 @@ export default function Entradas() {
               </div>
             </div>
 
-            {/* Input de valor */}
+            {/* Input de valor — type="text" para digitação livre sem setas */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>R$</span>
               <input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={displayAmt}
-                placeholder={formatBRL(inc.amount).replace('R$ ', '')}
+                placeholder="0.00"
                 onChange={e => setEditAmounts(p => ({ ...p, [inc.id]: e.target.value }))}
                 onBlur={() => handleAmountBlur(inc)}
+                onFocus={e => e.target.style.borderColor = 'var(--purple)'}
                 style={{
                   width: 110,
                   padding: '5px 8px',
@@ -140,16 +150,15 @@ export default function Entradas() {
                   fontSize: 14,
                   fontWeight: 700,
                   textAlign: 'right',
-                  background: received ? '#F0FDF4' : 'var(--card)',
-                  color: received ? 'var(--green)' : 'var(--text-primary)',
+                  background: recv ? '#F0FDF4' : 'var(--card)',
+                  color: recv ? 'var(--green)' : 'var(--text-primary)',
                   transition: 'border-color 0.15s',
                   outline: 'none',
                 }}
-                onFocus={e => { e.target.style.borderColor = 'var(--purple)' }}
               />
             </div>
 
-            {received
+            {recv
               ? <span className="badge badge-green">✓</span>
               : <span className="badge badge-gray">—</span>
             }
@@ -167,20 +176,20 @@ export default function Entradas() {
         <div className="metric-card" style={{ background: 'var(--grad-primary)' }}>
           <div className="metric-card-icon">💰</div>
           <div className="metric-card-label">Total Entradas</div>
-          <div className="metric-card-value">{formatBRL(baseT + baseS)}</div>
-          <div className="metric-card-sub">Renda combinada base</div>
+          <div className="metric-card-value">{formatBRL(realT + realS)}</div>
+          <div className="metric-card-sub">Lançado este mês</div>
         </div>
         <div className="metric-card" style={{ background: 'var(--grad-red)' }}>
           <div className="metric-card-icon">T</div>
           <div className="metric-card-label">Tereza</div>
-          <div className="metric-card-value">{formatBRL(baseT)}</div>
-          <div className="metric-card-sub">Base mensal</div>
+          <div className="metric-card-value">{formatBRL(realT)}</div>
+          <div className="metric-card-sub">Lançado este mês</div>
         </div>
         <div className="metric-card" style={{ background: 'var(--grad-blue)' }}>
           <div className="metric-card-icon">S</div>
           <div className="metric-card-label">Sebastião</div>
-          <div className="metric-card-value">{formatBRL(baseS)}</div>
-          <div className="metric-card-sub">Base mensal</div>
+          <div className="metric-card-value">{formatBRL(realS)}</div>
+          <div className="metric-card-sub">Lançado este mês</div>
         </div>
         <div className="metric-card" style={{ background: 'var(--grad-green)' }}>
           <div className="metric-card-icon">🎁</div>
@@ -202,22 +211,22 @@ export default function Entradas() {
         <PersonBlock
           personLabel="Tereza"     items={tereza}
           color="var(--pink)"      avatar="T"
-          base={baseT}             thirteenth={thirteenthT}   received={recT}
+          real={realT}             thirteenth={thirteenthT}   received={recT}
         />
         <PersonBlock
           personLabel="Sebastião"  items={sebastiao}
           color="var(--purple)"    avatar="S"
-          base={baseS}             thirteenth={thirteenthS}   received={recS}
+          real={realS}             thirteenth={thirteenthS}   received={recS}
         />
       </div>
 
       {/* ── Recebido vs Esperado ── */}
       <div className="card mt-24">
-        <div className="section-title">📊 Recebido vs Esperado — {monthLabel(currentMonth)}</div>
+        <div className="section-title">📊 Recebido vs Lançado — {monthLabel(currentMonth)}</div>
         {incomes.map(inc => {
           const rec      = getRecord(inc.id)
           const recvAmt  = rec?.received ? (rec.amount ?? inc.amount) : 0
-          const expected = rec?.amount   ?? inc.amount ?? 0            // valor digitado p/ o mês
+          const expected = rec?.amount ?? inc.amount ?? 0
           const pct      = expected > 0 ? Math.min((recvAmt / expected) * 100, 100) : 0
           return (
             <div key={inc.id} style={{ marginBottom: 16 }}>
