@@ -9,6 +9,7 @@ import Entradas     from './pages/Entradas'
 import Metas        from './pages/Metas'
 import Relatorios   from './pages/Relatorios'
 import Configuracoes from './pages/Configuracoes'
+import CartoesResumo from './pages/CartoesResumo'
 
 function Layout({ children }) {
   return (
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="/metas"      element={<Metas />} />
             <Route path="/relatorios" element={<Relatorios />} />
             <Route path="/config"     element={<Configuracoes />} />
+            <Route path="/cartoes-resumo" element={<CartoesResumo />} />
           </Routes>
         </Layout>
       </FinanceProvider>

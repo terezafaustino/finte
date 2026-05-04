@@ -3,13 +3,14 @@ import { formatBRL, monthLabel } from '../utils/calculations'
 import { useFinance } from '../contexts/FinanceContext'
 
 const TITLES = {
-  '/':           { title: 'Dashboard',               subtitle: 'Visão geral financeira' },
-  '/cartoes':    { title: 'Cartões de Crédito',       subtitle: 'Faturas e transações' },
-  '/fixas':      { title: 'Contas Fixas',             subtitle: 'Contas mensais recorrentes' },
-  '/entradas':   { title: 'Entradas',                 subtitle: 'Salários e receitas' },
-  '/metas':      { title: 'Metas & Investimentos',    subtitle: 'Controle de metas por categoria' },
-  '/relatorios': { title: 'Projeções do Ano',         subtitle: 'Estimativas e planejamento' },
-  '/config':     { title: 'Configurações',            subtitle: 'Cartões, salários e categorias' },
+  '/':               { title: 'Dashboard',               subtitle: 'Visão geral financeira' },
+  '/cartoes':        { title: 'Cartões de Crédito',       subtitle: 'Faturas e transações' },
+  '/cartoes-resumo': { title: 'Resumo de Cartões',        subtitle: 'Dashboard de gastos no cartão' },
+  '/fixas':          { title: 'Contas',                   subtitle: 'Contas mensais recorrentes' },
+  '/entradas':       { title: 'Entradas',                 subtitle: 'Salários e receitas' },
+  '/metas':          { title: 'Metas & Investimentos',    subtitle: 'Controle de metas por categoria' },
+  '/relatorios':     { title: 'Projeções do Ano',         subtitle: 'Estimativas e planejamento' },
+  '/config':         { title: 'Configurações',            subtitle: 'Cartões, salários e categorias' },
 }
 
 export default function Header() {

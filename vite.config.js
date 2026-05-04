@@ -6,18 +6,5 @@ export default defineConfig({
   base: '/finte/',
   build: {
     outDir: 'dist',
-    assetsDir: 'assets',
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          charts: ['recharts'],
-          firebase: ['firebase/app', 'firebase/firestore'],
-        }
-      }
-    }
-  },
-  optimizeDeps: {
-    include: ['pdfjs-dist/build/pdf']
   }
 })

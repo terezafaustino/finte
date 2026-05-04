@@ -3,13 +3,14 @@ import { useFinance } from '../contexts/FinanceContext'
 import { MONTHS_PT, yearMonths } from '../utils/calculations'
 
 const NAV = [
-  { to: '/',           icon: '📊', label: 'Dashboard' },
-  { to: '/cartoes',    icon: '💳', label: 'Cartões' },
-  { to: '/fixas',      icon: '🏠', label: 'Contas Fixas' },
-  { to: '/entradas',   icon: '💰', label: 'Entradas' },
-  { to: '/metas',      icon: '🎯', label: 'Metas & Investimentos' },
-  { to: '/relatorios', icon: '📈', label: 'Projeções' },
-  { to: '/config',     icon: '⚙️',  label: 'Configurações' },
+  { to: '/',               icon: '📊', label: 'Dashboard' },
+  { to: '/cartoes',        icon: '💳', label: 'Cartões' },
+  { to: '/cartoes-resumo', icon: '📊', label: 'Resumo Cartões' },
+  { to: '/fixas',          icon: '🏠', label: 'Contas' },
+  { to: '/entradas',       icon: '💰', label: 'Entradas' },
+  { to: '/metas',          icon: '🎯', label: 'Metas & Investimentos' },
+  { to: '/relatorios',     icon: '📈', label: 'Projeções' },
+  { to: '/config',         icon: '⚙️',  label: 'Configurações' },
 ]
 
 export default function Sidebar() {

@@ -211,7 +211,6 @@ export default function Cartoes() {
                     <th>Pessoa</th>
                     <th className="text-right">Valor</th>
                     <th>Parcela</th>
-                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -244,13 +243,6 @@ export default function Cartoes() {
                       </td>
                       <td className="text-right font-semibold">{formatBRL(tx.amount)}</td>
                       <td>{tx.installmentTotal > 1 ? `${tx.installmentNumber}/${tx.installmentTotal}` : '—'}</td>
-                      <td>
-                        <button
-                          className="btn btn-sm btn-danger"
-                          title="Remover linha"
-                          onClick={() => setPendingTxs(prev => prev.filter((_, j) => j !== i))}
-                        >🗑</button>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
