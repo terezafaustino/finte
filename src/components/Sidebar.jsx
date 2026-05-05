@@ -8,6 +8,7 @@ const NAV = [
   { to: '/cartoes-resumo', icon: '📊', label: 'Resumo Cartões' },
   { to: '/fixas',          icon: '🏠', label: 'Contas' },
   { to: '/entradas',       icon: '💰', label: 'Entradas' },
+  { to: '/assinaturas',    icon: '📋', label: 'Assinaturas' },
   { to: '/metas',          icon: '🎯', label: 'Metas & Investimentos' },
   { to: '/relatorios',     icon: '📈', label: 'Projeções' },
   { to: '/config',         icon: '⚙️',  label: 'Configurações' },
@@ -18,7 +19,6 @@ export default function Sidebar() {
   const location = useLocation()
 
   const now = new Date()
-  // Gera opções: meses do ano atual + próximos 3 meses
   const months = []
   for (let i = -11; i <= 3; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
@@ -26,6 +26,8 @@ export default function Sidebar() {
     const label = `${MONTHS_PT[d.getMonth()]} ${d.getFullYear()}`
     months.push({ key, label })
   }
+
+  const isAssinaturas = location.pathname === '/assinaturas'
 
   return (
     <aside className="sidebar">
@@ -50,12 +52,15 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="sidebar-month">
-        <label>Mês de referência</label>
+      <div className="sidebar-month" style={{ opacity: isAssinaturas ? 0.4 : 1 }}>
+        <label>
+          {isAssinaturas ? 'Mês (não aplicável)' : 'Mês de referência'}
+        </label>
         <select
           className="month-select"
           value={currentMonth}
           onChange={e => setCurrentMonth(e.target.value)}
+          disabled={isAssinaturas}
         >
           {months.map(m => (
             <option key={m.key} value={m.key}>{m.label}</option>

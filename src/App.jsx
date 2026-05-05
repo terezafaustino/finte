@@ -1,13 +1,14 @@
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import { FinanceProvider } from './contexts/FinanceContext'
-import Sidebar      from './components/Sidebar'
-import Header       from './components/Header'
-import Dashboard    from './pages/Dashboard'
-import Cartoes      from './pages/Cartoes'
-import ContasFixas  from './pages/ContasFixas'
-import Entradas     from './pages/Entradas'
-import Metas        from './pages/Metas'
-import Relatorios   from './pages/Relatorios'
+import Sidebar       from './components/Sidebar'
+import Header        from './components/Header'
+import Dashboard     from './pages/Dashboard'
+import Cartoes       from './pages/Cartoes'
+import ContasFixas   from './pages/ContasFixas'
+import Entradas      from './pages/Entradas'
+import Assinaturas   from './pages/Assinaturas'
+import Metas         from './pages/Metas'
+import Relatorios    from './pages/Relatorios'
 import Configuracoes from './pages/Configuracoes'
 import CartoesResumo from './pages/CartoesResumo'
 
@@ -29,13 +30,14 @@ export default function App() {
       <FinanceProvider>
         <Layout>
           <Routes>
-            <Route path="/"           element={<Dashboard />} />
-            <Route path="/cartoes"    element={<Cartoes />} />
-            <Route path="/fixas"      element={<ContasFixas />} />
-            <Route path="/entradas"   element={<Entradas />} />
-            <Route path="/metas"      element={<Metas />} />
-            <Route path="/relatorios" element={<Relatorios />} />
-            <Route path="/config"     element={<Configuracoes />} />
+            <Route path="/"               element={<Dashboard />} />
+            <Route path="/cartoes"        element={<Cartoes />} />
+            <Route path="/fixas"          element={<ContasFixas />} />
+            <Route path="/entradas"       element={<Entradas />} />
+            <Route path="/assinaturas"    element={<Assinaturas />} />
+            <Route path="/metas"          element={<Metas />} />
+            <Route path="/relatorios"     element={<Relatorios />} />
+            <Route path="/config"         element={<Configuracoes />} />
             <Route path="/cartoes-resumo" element={<CartoesResumo />} />
           </Routes>
         </Layout>
