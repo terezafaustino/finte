@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import {
-  collection, doc, getDoc, getDocs, setDoc, updateDoc,
-  deleteDoc, onSnapshot, writeBatch, serverTimestamp
+  collection, doc, getDocs, setDoc, updateDoc,
+  onSnapshot,
 } from 'firebase/firestore'
 import { db } from '../firebase/config'
 
@@ -55,6 +55,19 @@ export const DEFAULT_SUB_CATEGORIES = [
   { id: 'ia',            label: 'IA',                     icon: '🤖', color: '#10B981' },
 ]
 
+export const DEFAULT_BENEFIT_CARDS = [
+  { id: 'flash',  label: 'Flash',  icon: '⚡', color: '#FF6B35' },
+  { id: 'ticket', label: 'Ticket', icon: '🎫', color: '#0068B4' },
+]
+
+export const DEFAULT_BENEFIT_CATEGORIES = [
+  { id: 'ben_carro',        label: 'Carro',             icon: '🚗', color: '#F97316' },
+  { id: 'ben_supermercado', label: 'Supermercado',      icon: '🛒', color: '#10B981' },
+  { id: 'ben_restaurante',  label: 'Restaurante/iFood', icon: '🍔', color: '#F59E0B' },
+  { id: 'ben_farmacia',     label: 'Farmácia',          icon: '💊', color: '#14B8A6' },
+  { id: 'ben_beleza',       label: 'Beleza',            icon: '💅', color: '#EC4899' },
+]
+
 const DEFAULT_CONFIG = {
   cards: [
     { id: 'inter',     bank: 'Inter',     brand: 'Mastercard', dueDay: 10, color: '#FF6600', person: 'tereza' },
@@ -84,8 +97,10 @@ const DEFAULT_CONFIG = {
     tereza:    { custos_fixos: 25, assinaturas: 10, manutencao: 10, investimentos: 20, inv_viagem: 5, beleza_lazer: 10, educacao: 5, saude: 5, saque: 5, imposto_renda: 5 },
     sebastiao: { custos_fixos: 30, assinaturas: 10, manutencao: 10, investimentos: 15, inv_viagem: 5, beleza_lazer: 10, educacao: 5, saude: 10, saque: 5, imposto_renda: 0 },
   },
-  subscriptions: [],
+  subscriptions:          [],
   subscriptionCategories: DEFAULT_SUB_CATEGORIES,
+  benefitCards:           DEFAULT_BENEFIT_CARDS,
+  benefitCategories:      DEFAULT_BENEFIT_CATEGORIES,
 }
 
 export function FinanceProvider({ children }) {
@@ -114,7 +129,7 @@ export function FinanceProvider({ children }) {
       if (snap.exists()) {
         setMonthData(snap.data())
       } else {
-        const initial = { fixedBills: [], transactions: [], incomes: [], createdAt: new Date().toISOString() }
+        const initial = { fixedBills: [], transactions: [], incomes: [], benefitDeposits: [], benefitExpenses: [], createdAt: new Date().toISOString() }
         setDoc(doc(db, 'months', currentMonth), initial)
         setMonthData(initial)
       }
@@ -132,12 +147,14 @@ export function FinanceProvider({ children }) {
     })
   }, [configReady, currentMonth])
 
+  // ── CONFIG ──
   const saveConfig = useCallback(async (updates) => {
     const newCfg = { ...config, ...updates }
     await setDoc(doc(db, 'config', 'main'), newCfg)
     setConfig(newCfg)
   }, [config])
 
+  // ── CONTAS FIXAS ──
   const toggleFixedBill = useCallback(async (billId, paid, paidAmount) => {
     const bills = [...(monthData.fixedBills || [])]
     const idx = bills.findIndex(b => b.id === billId)
@@ -147,6 +164,7 @@ export function FinanceProvider({ children }) {
     await updateDoc(doc(db, 'months', currentMonth), { fixedBills: bills })
   }, [monthData, currentMonth])
 
+  // ── TRANSAÇÕES ──
   const saveTransactions = useCallback(async (transactions, monthKey) => {
     const key = monthKey || currentMonth
     const existing = allMonths[key]?.transactions || []
@@ -155,7 +173,7 @@ export function FinanceProvider({ children }) {
     transactions.forEach(t => { map[t.id] = t })
     const merged = Object.values(map)
     await updateDoc(doc(db, 'months', key), { transactions: merged }).catch(() =>
-      setDoc(doc(db, 'months', key), { transactions: merged, fixedBills: [], incomes: [] })
+      setDoc(doc(db, 'months', key), { transactions: merged, fixedBills: [], incomes: [], benefitDeposits: [], benefitExpenses: [] })
     )
     setAllMonths(prev => ({ ...prev, [key]: { ...prev[key], transactions: merged } }))
   }, [currentMonth, allMonths])
@@ -176,6 +194,7 @@ export function FinanceProvider({ children }) {
     setAllMonths(prev => ({ ...prev, [key]: { ...prev[key], transactions } }))
   }, [currentMonth, allMonths])
 
+  // ── ENTRADAS ──
   const saveIncome = useCallback(async (incomeId, received, amount) => {
     const incomes = [...(monthData.incomes || [])]
     const idx = incomes.findIndex(i => i.id === incomeId)
@@ -195,20 +214,51 @@ export function FinanceProvider({ children }) {
   }, [config, saveConfig])
 
   const deleteSubscription = useCallback(async (subId) => {
-    const list = (config.subscriptions || []).filter(s => s.id !== subId)
-    await saveConfig({ subscriptions: list })
+    await saveConfig({ subscriptions: (config.subscriptions || []).filter(s => s.id !== subId) })
   }, [config, saveConfig])
 
   const saveSubCategories = useCallback(async (cats) => {
     await saveConfig({ subscriptionCategories: cats })
   }, [saveConfig])
 
+  // ── BENEFÍCIOS ──
+  const saveBenefitDeposit = useCallback(async (cardId, person, amount) => {
+    const deposits = [...(monthData.benefitDeposits || [])]
+    const idx = deposits.findIndex(d => d.cardId === cardId && d.person === person)
+    const entry = { cardId, person, amount }
+    if (idx >= 0) deposits[idx] = entry
+    else deposits.push(entry)
+    await updateDoc(doc(db, 'months', currentMonth), { benefitDeposits: deposits })
+  }, [monthData, currentMonth])
+
+  const saveBenefitExpense = useCallback(async (expense) => {
+    const list = [...(monthData.benefitExpenses || [])]
+    const idx = list.findIndex(e => e.id === expense.id)
+    if (idx >= 0) list[idx] = expense
+    else list.push(expense)
+    await updateDoc(doc(db, 'months', currentMonth), { benefitExpenses: list })
+  }, [monthData, currentMonth])
+
+  const deleteBenefitExpense = useCallback(async (expId) => {
+    const list = (monthData.benefitExpenses || []).filter(e => e.id !== expId)
+    await updateDoc(doc(db, 'months', currentMonth), { benefitExpenses: list })
+  }, [monthData, currentMonth])
+
+  const saveBenefitCards = useCallback(async (cards) => {
+    await saveConfig({ benefitCards: cards })
+  }, [saveConfig])
+
+  const saveBenefitCategories = useCallback(async (cats) => {
+    await saveConfig({ benefitCategories: cats })
+  }, [saveConfig])
+
+  // ── COMPUTED ──
   const computedData = useCallback((monthKey) => {
-    const key = monthKey || currentMonth
+    const key   = monthKey || currentMonth
     const mData = allMonths[key] || monthData
-    const txs = mData.transactions || []
-    const bills = mData.fixedBills || []
-    const incomes = mData.incomes || []
+    const txs   = mData.transactions || []
+    const bills = mData.fixedBills   || []
+    const incomes = mData.incomes    || []
 
     const totalIncome = { tereza: 0, sebastiao: 0 }
     config.incomes.forEach(inc => {
@@ -219,7 +269,7 @@ export function FinanceProvider({ children }) {
     })
 
     const byCategory = {}
-    const byPerson = { tereza: 0, sebastiao: 0 }
+    const byPerson   = { tereza: 0, sebastiao: 0 }
     txs.forEach(tx => {
       if (!byCategory[tx.category]) byCategory[tx.category] = { tereza: 0, sebastiao: 0, total: 0 }
       byCategory[tx.category][tx.person] = (byCategory[tx.category][tx.person] || 0) + tx.amount
@@ -232,8 +282,8 @@ export function FinanceProvider({ children }) {
       const cfg = config.fixedBills.find(f => f.id === b.id)
       if (!cfg) return
       const amt = b.amount || cfg.amount
-      if (cfg.person === 'both') { fixedPaid.tereza += amt / 2; fixedPaid.sebastiao += amt / 2 }
-      else if (cfg.person === 'tereza') fixedPaid.tereza += amt
+      if (cfg.person === 'both')      { fixedPaid.tereza += amt / 2; fixedPaid.sebastiao += amt / 2 }
+      else if (cfg.person === 'tereza')    fixedPaid.tereza    += amt
       else if (cfg.person === 'sebastiao') fixedPaid.sebastiao += amt
     })
 
@@ -253,6 +303,8 @@ export function FinanceProvider({ children }) {
     saveTransactions, deleteTransaction, updateTransaction,
     saveIncome,
     saveSubscription, deleteSubscription, saveSubCategories,
+    saveBenefitDeposit, saveBenefitExpense, deleteBenefitExpense,
+    saveBenefitCards, saveBenefitCategories,
     computedData,
     GENERAL_CATEGORIES, CARD_CATEGORIES, PESSOAS,
   }

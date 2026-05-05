@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { useFinance } from '../contexts/FinanceContext'
-import { MONTHS_PT, yearMonths } from '../utils/calculations'
+import { MONTHS_PT } from '../utils/calculations'
 
 const NAV = [
   { to: '/',               icon: '📊', label: 'Dashboard' },
@@ -8,11 +8,15 @@ const NAV = [
   { to: '/cartoes-resumo', icon: '📊', label: 'Resumo Cartões' },
   { to: '/fixas',          icon: '🏠', label: 'Contas' },
   { to: '/entradas',       icon: '💰', label: 'Entradas' },
+  { to: '/beneficios',     icon: '🎫', label: 'Benefícios' },
   { to: '/assinaturas',    icon: '📋', label: 'Assinaturas' },
   { to: '/metas',          icon: '🎯', label: 'Metas & Investimentos' },
   { to: '/relatorios',     icon: '📈', label: 'Projeções' },
   { to: '/config',         icon: '⚙️',  label: 'Configurações' },
 ]
+
+// Abas independentes de mês
+const MONTH_INDEPENDENT = ['/assinaturas']
 
 export default function Sidebar() {
   const { currentMonth, setCurrentMonth } = useFinance()
@@ -23,11 +27,10 @@ export default function Sidebar() {
   for (let i = -11; i <= 3; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    const label = `${MONTHS_PT[d.getMonth()]} ${d.getFullYear()}`
-    months.push({ key, label })
+    months.push({ key, label: `${MONTHS_PT[d.getMonth()]} ${d.getFullYear()}` })
   }
 
-  const isAssinaturas = location.pathname === '/assinaturas'
+  const noMonth = MONTH_INDEPENDENT.includes(location.pathname)
 
   return (
     <aside className="sidebar">
@@ -38,7 +41,6 @@ export default function Sidebar() {
 
       <nav className="sidebar-nav">
         <span className="sidebar-section-label">Menu</span>
-
         {NAV.map(item => (
           <NavLink
             key={item.to}
@@ -52,19 +54,15 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="sidebar-month" style={{ opacity: isAssinaturas ? 0.4 : 1 }}>
-        <label>
-          {isAssinaturas ? 'Mês (não aplicável)' : 'Mês de referência'}
-        </label>
+      <div className="sidebar-month" style={{ opacity: noMonth ? 0.4 : 1 }}>
+        <label>{noMonth ? 'Mês (não aplicável)' : 'Mês de referência'}</label>
         <select
           className="month-select"
           value={currentMonth}
           onChange={e => setCurrentMonth(e.target.value)}
-          disabled={isAssinaturas}
+          disabled={noMonth}
         >
-          {months.map(m => (
-            <option key={m.key} value={m.key}>{m.label}</option>
-          ))}
+          {months.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
         </select>
       </div>
     </aside>

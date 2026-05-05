@@ -6,6 +6,7 @@ import Dashboard     from './pages/Dashboard'
 import Cartoes       from './pages/Cartoes'
 import ContasFixas   from './pages/ContasFixas'
 import Entradas      from './pages/Entradas'
+import Beneficios    from './pages/Beneficios'
 import Assinaturas   from './pages/Assinaturas'
 import Metas         from './pages/Metas'
 import Relatorios    from './pages/Relatorios'
@@ -34,6 +35,7 @@ export default function App() {
             <Route path="/cartoes"        element={<Cartoes />} />
             <Route path="/fixas"          element={<ContasFixas />} />
             <Route path="/entradas"       element={<Entradas />} />
+            <Route path="/beneficios"     element={<Beneficios />} />
             <Route path="/assinaturas"    element={<Assinaturas />} />
             <Route path="/metas"          element={<Metas />} />
             <Route path="/relatorios"     element={<Relatorios />} />
