@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import {
-  collection, doc, getDocs, setDoc, updateDoc, onSnapshot,
+  collection, doc, getDocs, setDoc, updateDoc,
+  onSnapshot,
 } from 'firebase/firestore'
 import { db } from '../firebase/config'
 
@@ -37,7 +38,9 @@ export const CARD_CATEGORIES = [
   { id: 'beleza_estetica',  label: 'Beleza & Estética',       color: '#D946EF', icon: '💅' },
   { id: 'presentes',        label: 'Presentes e Doações',     color: '#EF4444', icon: '🎁' },
   { id: 'pets',             label: 'Pets',                    color: '#84CC16', icon: '🐾' },
-  { id: 'diversos',         label: 'Imprevistos/Diversos',    color: '#94A3B8', icon: '❓' },
+  { id: 'viagem',        label: 'Viagem',         color: '#06B6D4', icon: '✈️'  },
+  { id: 'plano_celular', label: 'Plano de Celular', color: '#0EA5E9', icon: '📶' },
+  { id: 'diversos',        label: 'Imprevistos/Diversos',    color: '#94A3B8', icon: '❓' },
 ]
 
 export const PESSOAS = [
@@ -102,13 +105,6 @@ const DEFAULT_CONFIG = {
   benefitCategories:      DEFAULT_BENEFIT_CATEGORIES,
 }
 
-const INITIAL_MONTH = {
-  fixedBills: [], transactions: [], incomes: [],
-  benefitDeposits: [], benefitExpenses: [],
-  investments: [],
-  createdAt: new Date().toISOString(),
-}
-
 export function FinanceProvider({ children }) {
   const [config, setConfig]             = useState(DEFAULT_CONFIG)
   const [currentMonth, setCurrentMonth] = useState(toMonthKey(new Date()))
@@ -119,8 +115,11 @@ export function FinanceProvider({ children }) {
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'config', 'main'), (snap) => {
-      if (snap.exists()) setConfig(prev => ({ ...DEFAULT_CONFIG, ...snap.data() }))
-      else setDoc(doc(db, 'config', 'main'), DEFAULT_CONFIG)
+      if (snap.exists()) {
+        setConfig(prev => ({ ...DEFAULT_CONFIG, ...snap.data() }))
+      } else {
+        setDoc(doc(db, 'config', 'main'), DEFAULT_CONFIG)
+      }
       setConfigReady(true)
     })
     return unsub
@@ -129,8 +128,13 @@ export function FinanceProvider({ children }) {
   useEffect(() => {
     if (!configReady) return
     const unsub = onSnapshot(doc(db, 'months', currentMonth), (snap) => {
-      if (snap.exists()) setMonthData(snap.data())
-      else { setDoc(doc(db, 'months', currentMonth), INITIAL_MONTH); setMonthData(INITIAL_MONTH) }
+      if (snap.exists()) {
+        setMonthData(snap.data())
+      } else {
+        const initial = { fixedBills: [], transactions: [], incomes: [], benefitDeposits: [], benefitExpenses: [], createdAt: new Date().toISOString() }
+        setDoc(doc(db, 'months', currentMonth), initial)
+        setMonthData(initial)
+      }
       setLoading(false)
     })
     return unsub
@@ -157,7 +161,8 @@ export function FinanceProvider({ children }) {
     const bills = [...(monthData.fixedBills || [])]
     const idx = bills.findIndex(b => b.id === billId)
     const entry = { id: billId, paid, amount: paidAmount, paidAt: paid ? new Date().toISOString() : null }
-    if (idx >= 0) bills[idx] = entry; else bills.push(entry)
+    if (idx >= 0) bills[idx] = entry
+    else bills.push(entry)
     await updateDoc(doc(db, 'months', currentMonth), { fixedBills: bills })
   }, [monthData, currentMonth])
 
@@ -170,7 +175,7 @@ export function FinanceProvider({ children }) {
     transactions.forEach(t => { map[t.id] = t })
     const merged = Object.values(map)
     await updateDoc(doc(db, 'months', key), { transactions: merged }).catch(() =>
-      setDoc(doc(db, 'months', key), { ...INITIAL_MONTH, transactions: merged })
+      setDoc(doc(db, 'months', key), { transactions: merged, fixedBills: [], incomes: [], benefitDeposits: [], benefitExpenses: [] })
     )
     setAllMonths(prev => ({ ...prev, [key]: { ...prev[key], transactions: merged } }))
   }, [currentMonth, allMonths])
@@ -196,7 +201,8 @@ export function FinanceProvider({ children }) {
     const incomes = [...(monthData.incomes || [])]
     const idx = incomes.findIndex(i => i.id === incomeId)
     const entry = { id: incomeId, received, amount, recordedAt: new Date().toISOString() }
-    if (idx >= 0) incomes[idx] = entry; else incomes.push(entry)
+    if (idx >= 0) incomes[idx] = entry
+    else incomes.push(entry)
     await updateDoc(doc(db, 'months', currentMonth), { incomes })
   }, [monthData, currentMonth])
 
@@ -204,7 +210,8 @@ export function FinanceProvider({ children }) {
   const saveSubscription = useCallback(async (sub) => {
     const list = [...(config.subscriptions || [])]
     const idx = list.findIndex(s => s.id === sub.id)
-    if (idx >= 0) list[idx] = sub; else list.push(sub)
+    if (idx >= 0) list[idx] = sub
+    else list.push(sub)
     await saveConfig({ subscriptions: list })
   }, [config, saveConfig])
 
@@ -221,14 +228,16 @@ export function FinanceProvider({ children }) {
     const deposits = [...(monthData.benefitDeposits || [])]
     const idx = deposits.findIndex(d => d.cardId === cardId && d.person === person)
     const entry = { cardId, person, amount }
-    if (idx >= 0) deposits[idx] = entry; else deposits.push(entry)
+    if (idx >= 0) deposits[idx] = entry
+    else deposits.push(entry)
     await updateDoc(doc(db, 'months', currentMonth), { benefitDeposits: deposits })
   }, [monthData, currentMonth])
 
   const saveBenefitExpense = useCallback(async (expense) => {
     const list = [...(monthData.benefitExpenses || [])]
     const idx = list.findIndex(e => e.id === expense.id)
-    if (idx >= 0) list[idx] = expense; else list.push(expense)
+    if (idx >= 0) list[idx] = expense
+    else list.push(expense)
     await updateDoc(doc(db, 'months', currentMonth), { benefitExpenses: list })
   }, [monthData, currentMonth])
 
@@ -244,15 +253,6 @@ export function FinanceProvider({ children }) {
   const saveBenefitCategories = useCallback(async (cats) => {
     await saveConfig({ benefitCategories: cats })
   }, [saveConfig])
-
-  // ── INVESTIMENTOS (manual, por pessoa/mês) ──
-  const saveInvestmentData = useCallback(async (person, portfolioValue, monthlyAmount) => {
-    const list = [...(monthData.investments || [])]
-    const idx = list.findIndex(i => i.person === person)
-    const entry = { person, portfolioValue, monthlyAmount, updatedAt: new Date().toISOString() }
-    if (idx >= 0) list[idx] = entry; else list.push(entry)
-    await updateDoc(doc(db, 'months', currentMonth), { investments: list })
-  }, [monthData, currentMonth])
 
   // ── COMPUTED ──
   const computedData = useCallback((monthKey) => {
@@ -284,7 +284,7 @@ export function FinanceProvider({ children }) {
       const cfg = config.fixedBills.find(f => f.id === b.id)
       if (!cfg) return
       const amt = b.amount || cfg.amount
-      if (cfg.person === 'both')           { fixedPaid.tereza += amt / 2; fixedPaid.sebastiao += amt / 2 }
+      if (cfg.person === 'both')      { fixedPaid.tereza += amt / 2; fixedPaid.sebastiao += amt / 2 }
       else if (cfg.person === 'tereza')    fixedPaid.tereza    += amt
       else if (cfg.person === 'sebastiao') fixedPaid.sebastiao += amt
     })
@@ -307,7 +307,6 @@ export function FinanceProvider({ children }) {
     saveSubscription, deleteSubscription, saveSubCategories,
     saveBenefitDeposit, saveBenefitExpense, deleteBenefitExpense,
     saveBenefitCards, saveBenefitCategories,
-    saveInvestmentData,
     computedData,
     GENERAL_CATEGORIES, CARD_CATEGORIES, PESSOAS,
   }

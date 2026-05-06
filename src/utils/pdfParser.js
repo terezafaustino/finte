@@ -22,6 +22,8 @@ const CATEGORY_KEYWORDS = {
   beleza_estetica:  ['salão', 'salao', 'barbearia', 'estética', 'estetica', 'manicure', 'cabeleireiro', 'studio', 'spa', 'maquiagem', 'dermato', 'waxing', 'by kamy', 'sephora', 'o boticário', 'boticario', 'natura', 'avon', 'beleza'],
   presentes:        ['presente', 'doação', 'doacao', 'gift', 'flores', 'buque', 'zee.dog', 'fnac', 'livraria', 'saraiva', 'cultura'],
   pets:             ['petshop', 'petz', 'cobasi', 'ração', 'racao', 'pet ', 'veterinário', 'vet ', 'aquário'],
+  viagem:           ['passagem aérea', 'latam', 'gol ', 'azul ', 'ryanair', 'ethiopian', 'booking', 'airbnb', 'hotel', 'hostel', 'pousada', 'resort', 'klook', 'getyourguide', 'gettyourguide', 'tripadvisor', 'aeroporto', 'bagagem', 'mala ', 'visa ', 'passaporte', 'embassy', 'câmbio', 'cambio', 'fancypods', 'attagirl', 'cosme', 'kyoto', 'osaka', 'shibuya', 'iof internacional'],
+  plano_celular:    ['claro', 'vivo ', 'tim ', 'oi ', 'nextel', 'algar', 'porto connect', 'recarga celular', 'recarga ', 'crédito celular', 'plano celular'],
 }
 
 export function autoCategory(description) {
