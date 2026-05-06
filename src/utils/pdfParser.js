@@ -52,7 +52,13 @@ const parseDate = (str, year) => {
   // DD/MM (sem ano)
   m = str.match(/(\d{2})\/(\d{2})/)
   if (m) return `${year || new Date().getFullYear()}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`
-  // DD MMM
+  // "DD de MMM. YYYY" — formato Inter (ex: "01 de abr. 2026")
+  m = str.match(/(\d{1,2})\s+de\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\.?\s+(\d{4})/i)
+  if (m) {
+    const mo = String(months[m[2].toLowerCase()]).padStart(2,'0')
+    return `${m[3]}-${mo}-${m[1].padStart(2,'0')}`
+  }
+  // DD MMM (sem "de", sem ano)
   m = str.match(/(\d{1,2})\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)/i)
   if (m) {
     const mo = String(months[m[2].toLowerCase()]).padStart(2,'0')
@@ -162,41 +168,90 @@ function parseGeneric(lines, year) {
   return transactions
 }
 
-// Inter — faturas em PDF com formato tabular limpo
+// Inter — formato atual: "DD de MMM. YYYY  Descrição  -  R$ X.XXX,XX"
+// Cabeçalho de seção: "CARTÃO XXXX****XXXX"
+// Coluna Beneficiário: sempre "-"
+// Compras internacionais: linhas extras de câmbio (ignoradas)
+// Pagamentos: "+ R$ X" (ignorados)
 function parseInter(lines, year) {
   const transactions = []
   let inBody = false
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    if (/data\s+histórico/i.test(line) || /data\s+lançamento/i.test(line)) { inBody = true; continue }
-    if (!inBody) continue
-    if (/total\s+fatura|valor\s+total|pagamento/i.test(line)) break
+  // Regex para data no formato Inter: "DD de MMM. YYYY"
+  const interDateRe = /^(\d{1,2}\s+de\s+(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\.?\s+\d{4})/i
 
-    // Inter: "DD/MM  Descrição  R$ 123,45" ou "DD/MM  Descrição  123,45"
-    const m = line.match(/^(\d{2}\/\d{2}(?:\/\d{2,4})?)\s+(.+?)\s+([\d.,]+)\s*$/)
-    if (!m) {
-      // Tenta padrão genérico
-      const generic = parseGeneric([line], year)
-      transactions.push(...generic)
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+
+    // Inicia corpo ao encontrar seção de cartão ou cabeçalho de coluna
+    if (/^CARTÃO\s+\d{4}\*+\d{4}/i.test(line) || /^data\s+movimenta/i.test(line)) {
+      inBody = true
       continue
     }
 
-    const date = parseDate(m[1], year)
-    const amount = parseAmount(m[3])
-    if (!date || amount <= 0) continue
+    if (!inBody) continue
 
-    let desc = m[2].trim()
+    // Pula linhas de cabeçalho, totais e metadados de câmbio
+    if (/^data\s+movimenta/i.test(line))                   continue
+    if (/^total\s+cartão/i.test(line))                     continue
+    if (/^valor\s+e\s+símbolo\s+da\s+moeda/i.test(line))   continue
+    if (/^valor\s+em\s+dólar/i.test(line))                  continue
+    if (/^cotação\s+do\s+dólar/i.test(line))                continue
+    if (/^beneficiário/i.test(line))                        continue
+    if (line === '-' || line.length < 5)                   continue
+
+    // Identifica linha de transação pela data no início
+    const dateM = line.match(interDateRe)
+    if (!dateM) continue
+
+    const date = parseDate(dateM[1], year)
+    if (!date) continue
+
+    // Resto da linha após a data
+    const rest = line.slice(dateM[0].length).trim()
+
+    // Pula pagamentos (valor positivo, precedido de "+")
+    if (/\+\s*R\$/.test(rest)) continue
+
+    // Extrai o valor: último "R$ X.XXX,XX" da linha
+    const amtM = rest.match(/R\$\s*([\d.]+,\d{2})\s*$/)
+    if (!amtM) continue
+
+    const amount = parseAmount(amtM[1])
+    if (amount <= 0) continue
+
+    // Descrição: tudo entre a data e o valor, removendo "-" do Beneficiário
+    let desc = rest
+      .slice(0, rest.lastIndexOf(amtM[0]))
+      .replace(/\s+-\s*$/, '')   // remove coluna Beneficiário ("-")
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+
+    if (desc.length < 2) continue
+
+    // Detecta parcelamento: "(Parcela 02 de 06)"
     let installmentNumber = 1, installmentTotal = 1
-    const pM = desc.match(/(\d{2})\/(\d{2})\s*$/i)
-    if (pM && parseInt(pM[2]) > 1) {
-      installmentNumber = parseInt(pM[1]); installmentTotal = parseInt(pM[2])
-      desc = desc.replace(pM[0], '').trim()
+    const parcelM = desc.match(/\(Parcela\s+(\d{1,2})\s+de\s+(\d{1,2})\)/i)
+    if (parcelM) {
+      installmentNumber = parseInt(parcelM[1])
+      installmentTotal  = parseInt(parcelM[2])
+      desc = desc.replace(parcelM[0], '').trim()
     }
 
-    transactions.push({ id: uid(), date, description: desc, amount, installmentNumber, installmentTotal, installmentAmount: amount, category: autoCategory(desc), person: null })
+    transactions.push({
+      id: uid(),
+      date,
+      description: desc,
+      amount,
+      installmentNumber,
+      installmentTotal,
+      installmentAmount: amount,
+      category: autoCategory(desc),
+      person: null,
+    })
   }
 
+  // Fallback para o parser genérico se nenhuma transação foi encontrada
   return transactions.length > 0 ? transactions : parseGeneric(lines, year)
 }
 
