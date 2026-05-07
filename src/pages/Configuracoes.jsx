@@ -31,14 +31,14 @@ export default function Configuracoes() {
 
   // ── Contas fixas ─────────────────────────────────────────
   const [bills, setBills] = useState(config.fixedBills || [])
-  const [newBill, setNewBill] = useState({ id: uid(), label: '', category: 'custos_fixos', amount: '', person: 'both', active: true })
+  const [newBill, setNewBill] = useState({ id: uid(), label: '', category: 'custos_fixos_essenciais', amount: '', person: 'both', active: true })
 
   const addBill = () => {
     if (!newBill.label) return
     const updated = [...bills, { ...newBill, id: uid(), amount: parseFloat(newBill.amount) || 0 }]
     setBills(updated)
     saveConfig({ fixedBills: updated })
-    setNewBill({ id: uid(), label: '', category: 'custos_fixos', amount: '', person: 'both', active: true })
+    setNewBill({ id: uid(), label: '', category: 'custos_fixos_essenciais', amount: '', person: 'both', active: true })
   }
 
   const removeBill = (id) => {

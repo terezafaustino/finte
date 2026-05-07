@@ -222,12 +222,12 @@ export default function Cartoes() {
                       <td>
                         <select
                           className="form-select"
-                          style={{ fontSize:12, padding:'4px 8px', minWidth:160 }}
+                          style={{ fontSize:12, padding:'4px 8px', minWidth:160, borderColor: !tx.category ? 'var(--red)' : undefined }}
                           value={tx.category || ''}
                           onChange={e => setPendingTxs(prev => prev.map((t, j) => j===i ? { ...t, category: e.target.value } : t))}
                         >
-                          <option value="">— Classificar —</option>
-                          {CARD_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                          <option value="">— Selecione —</option>
+                          {CARD_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
                         </select>
                       </td>
                       <td>

@@ -14,7 +14,7 @@ export default function ContasFixas() {
 
   const [editAmount, setEditAmount]         = useState({})
   const [showAddPayment, setShowAddPayment] = useState(false)
-  const [newPayment, setNewPayment]         = useState({ label: '', category: 'custos_fixos', amount: '', person: 'both' })
+  const [newPayment, setNewPayment]         = useState({ label: '', category: 'custos_fixos_essenciais', amount: '', person: 'both' })
   const [saving, setSaving]                 = useState(false)
 
   // ── Contas fixas ──
@@ -101,7 +101,7 @@ export default function ContasFixas() {
         person:    newPayment.person,
         createdAt: new Date().toISOString(),
       })
-      setNewPayment({ label: '', category: 'custos_fixos', amount: '', person: 'both' })
+      setNewPayment({ label: '', category: 'custos_fixos_essenciais', amount: '', person: 'both' })
       setShowAddPayment(false)
     } finally {
       setSaving(false)

@@ -29,7 +29,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 }
 
 export default function Dashboard() {
-  const { config, allMonths, monthData, currentMonth, GENERAL_CATEGORIES, CARD_CATEGORIES } = useFinance()
+  const { config, allMonths, monthData, currentMonth, GENERAL_CATEGORIES, CARD_CATEGORIES, SUBCATEGORY_TO_MAIN } = useFinance()
   const { computedData } = useFinance()
   const data = computedData()
 
@@ -53,13 +53,7 @@ export default function Dashboard() {
     })
     // Transações de cartão (mapeia categorias cartão → geral)
     ;(monthData.transactions || []).forEach(tx => {
-      const catMap = {
-        supermercado:'custos_fixos', restaurantes:'beleza_lazer', ecommerce:'beleza_lazer',
-        vestuario:'beleza_lazer', casa_utensílios:'custos_fixos', assinaturas_card:'assinaturas',
-        transporte_app:'manutencao', carro:'manutencao', farmacia:'saude',
-        beleza_estetica:'beleza_lazer', presentes:'beleza_lazer', pets:'beleza_lazer', diversos:'custos_fixos',
-      }
-      const generalCat = catMap[tx.category] || 'custos_fixos'
+      const generalCat = SUBCATEGORY_TO_MAIN[tx.category] || 'custos_fixos_essenciais'
       merged[generalCat] = (merged[generalCat] || 0) + tx.amount
     })
     // Pagamentos avulsos (já usam GENERAL_CATEGORIES diretamente)

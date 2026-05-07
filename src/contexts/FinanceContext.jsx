@@ -13,32 +13,83 @@ const toMonthKey = (date) => {
 }
 
 export const GENERAL_CATEGORIES = [
-  { id: 'custos_fixos',     label: 'Custos Fixos',            color: '#EF4444', icon: '🏠' },
-  { id: 'assinaturas',      label: 'Assinaturas',             color: '#8B5CF6', icon: '📱' },
-  { id: 'manutencao',       label: 'Manutenção & Mobilidade', color: '#F59E0B', icon: '🚗' },
-  { id: 'investimentos',    label: 'Investimentos Geral',     color: '#10B981', icon: '📈' },
-  { id: 'inv_viagem',       label: 'Investimentos Viagem',    color: '#06B6D4', icon: '✈️' },
-  { id: 'beleza_lazer',     label: 'Beleza & Lazer',          color: '#EC4899', icon: '💄' },
-  { id: 'educacao',         label: 'Educação',                color: '#3B82F6', icon: '📚' },
-  { id: 'saude',            label: 'Saúde',                   color: '#14B8A6', icon: '🏥' },
-  { id: 'saque',            label: 'Saque Dinheiro',          color: '#6B7280', icon: '💵' },
-  { id: 'imposto_renda',    label: 'Imposto de Renda',        color: '#DC2626', icon: '🧾' },
+  { id: 'custos_fixos_essenciais', label: 'Custos Fixos Essenciais', color: '#EF4444', icon: '🏠' },
+  { id: 'vida_facilitada',         label: 'Vida Facilitada',         color: '#8B5CF6', icon: '✨' },
+  { id: 'prazer_lazer',            label: 'Prazer & Lazer',          color: '#EC4899', icon: '🎉' },
+  { id: 'metas_sonhos',            label: 'Metas & Sonhos',          color: '#06B6D4', icon: '🌟' },
+  { id: 'liberdade_financeira',    label: 'Liberdade Financeira',    color: '#10B981', icon: '📈' },
+  { id: 'conhecimento',            label: 'Conhecimento',            color: '#3B82F6', icon: '📚' },
 ]
 
+// Mapeamento subcategoria → categoria principal
+export const SUBCATEGORY_TO_MAIN = {
+  // Custos Fixos Essenciais
+  supermercado: 'custos_fixos_essenciais',
+  carro: 'custos_fixos_essenciais',
+  seguros: 'custos_fixos_essenciais',
+  plano_celular: 'custos_fixos_essenciais',
+  // Vida Facilitada
+  assinaturas: 'vida_facilitada',
+  transporte_app: 'vida_facilitada',
+  casa_utensilios: 'vida_facilitada',
+  farmacia: 'vida_facilitada',
+  beleza_estetica: 'vida_facilitada',
+  pets: 'vida_facilitada',
+  // Prazer & Lazer
+  restaurantes: 'prazer_lazer',
+  ecommerce: 'prazer_lazer',
+  vestuario: 'prazer_lazer',
+  // Metas & Sonhos
+  viagem: 'metas_sonhos',
+  presentes: 'metas_sonhos',
+  // Liberdade Financeira
+  investimentos: 'liberdade_financeira',
+  // Conhecimento
+  educacao: 'conhecimento',
+  // Compatibilidade com IDs antigos
+  assinaturas_card: 'vida_facilitada',
+  'casa_utensílios': 'vida_facilitada',
+  beleza_lazer: 'prazer_lazer',
+  inv_viagem: 'metas_sonhos',
+  custos_fixos: 'custos_fixos_essenciais',
+  manutencao: 'custos_fixos_essenciais',
+  saude: 'vida_facilitada',
+  imposto_renda: 'custos_fixos_essenciais',
+  saque: 'custos_fixos_essenciais',
+  diversos: 'custos_fixos_essenciais',
+  // Categorias principais mapeiam para si mesmas
+  custos_fixos_essenciais: 'custos_fixos_essenciais',
+  vida_facilitada: 'vida_facilitada',
+  prazer_lazer: 'prazer_lazer',
+  metas_sonhos: 'metas_sonhos',
+  liberdade_financeira: 'liberdade_financeira',
+  conhecimento: 'conhecimento',
+}
+
 export const CARD_CATEGORIES = [
-  { id: 'supermercado',     label: 'Supermercado',            color: '#10B981', icon: '🛒' },
-  { id: 'restaurantes',     label: 'Lanches/Restaurantes',    color: '#F59E0B', icon: '🍔' },
-  { id: 'ecommerce',        label: 'E-commerce',              color: '#3B82F6', icon: '📦' },
-  { id: 'vestuario',        label: 'Vestuário',               color: '#EC4899', icon: '👗' },
-  { id: 'casa_utensílios',  label: 'Casa & Utensílios',       color: '#8B5CF6', icon: '🏠' },
-  { id: 'assinaturas_card', label: 'Assinaturas',             color: '#6366F1', icon: '📱' },
-  { id: 'transporte_app',   label: 'Transporte por app',      color: '#0EA5E9', icon: '🚕' },
-  { id: 'carro',            label: 'Carro',                   color: '#F97316', icon: '🚗' },
-  { id: 'farmacia',         label: 'Farmácia',                color: '#14B8A6', icon: '💊' },
-  { id: 'beleza_estetica',  label: 'Beleza & Estética',       color: '#D946EF', icon: '💅' },
-  { id: 'presentes',        label: 'Presentes e Doações',     color: '#EF4444', icon: '🎁' },
-  { id: 'pets',             label: 'Pets',                    color: '#84CC16', icon: '🐾' },
-  { id: 'diversos',         label: 'Imprevistos/Diversos',    color: '#94A3B8', icon: '❓' },
+  // 🏠 Custos Fixos Essenciais
+  { id: 'supermercado',   label: 'Supermercado',        color: '#10B981', icon: '🛒', mainCategory: 'custos_fixos_essenciais' },
+  { id: 'carro',          label: 'Carro',               color: '#F97316', icon: '🚗', mainCategory: 'custos_fixos_essenciais' },
+  { id: 'seguros',        label: 'Seguros',             color: '#EF4444', icon: '🛡️', mainCategory: 'custos_fixos_essenciais' },
+  { id: 'plano_celular',  label: 'Plano Celular',       color: '#6366F1', icon: '📱', mainCategory: 'custos_fixos_essenciais' },
+  // ✨ Vida Facilitada
+  { id: 'assinaturas',    label: 'Assinaturas',         color: '#8B5CF6', icon: '📺', mainCategory: 'vida_facilitada' },
+  { id: 'transporte_app', label: 'Transporte por app',  color: '#0EA5E9', icon: '🚕', mainCategory: 'vida_facilitada' },
+  { id: 'casa_utensilios',label: 'Casa & Utensílios',   color: '#64748B', icon: '🏠', mainCategory: 'vida_facilitada' },
+  { id: 'farmacia',       label: 'Farmácia',            color: '#14B8A6', icon: '💊', mainCategory: 'vida_facilitada' },
+  { id: 'beleza_estetica',label: 'Beleza & Estética',   color: '#D946EF', icon: '💅', mainCategory: 'vida_facilitada' },
+  { id: 'pets',           label: 'Pets',                color: '#84CC16', icon: '🐾', mainCategory: 'vida_facilitada' },
+  // 🎉 Prazer & Lazer
+  { id: 'restaurantes',   label: 'Lanches/Restaurantes',color: '#F59E0B', icon: '🍔', mainCategory: 'prazer_lazer' },
+  { id: 'ecommerce',      label: 'E-commerce',          color: '#3B82F6', icon: '📦', mainCategory: 'prazer_lazer' },
+  { id: 'vestuario',      label: 'Vestuário',           color: '#EC4899', icon: '👗', mainCategory: 'prazer_lazer' },
+  // 🌟 Metas & Sonhos
+  { id: 'viagem',         label: 'Viagem',              color: '#06B6D4', icon: '✈️', mainCategory: 'metas_sonhos' },
+  { id: 'presentes',      label: 'Presentes e Doações', color: '#EF4444', icon: '🎁', mainCategory: 'metas_sonhos' },
+  // 📈 Liberdade Financeira
+  { id: 'investimentos',  label: 'Valor Investido',     color: '#10B981', icon: '📈', mainCategory: 'liberdade_financeira' },
+  // 📚 Conhecimento
+  { id: 'educacao',       label: 'Educação',            color: '#3B82F6', icon: '📚', mainCategory: 'conhecimento' },
 ]
 
 export const PESSOAS = [
@@ -82,20 +133,20 @@ const DEFAULT_CONFIG = {
     { id: 'sebastiao_aposent', label: 'Sebastião Aposentadoria', person: 'sebastiao', type: 'other',  amount: 0, hasThirteenth: true },
   ],
   fixedBills: [
-    { id: 'aluguel',     label: 'Aluguel/Condomínio', category: 'custos_fixos', amount: 0, person: 'both',      active: true },
-    { id: 'luz',         label: 'Luz',                category: 'custos_fixos', amount: 0, person: 'both',      active: true },
-    { id: 'agua',        label: 'Água',               category: 'custos_fixos', amount: 0, person: 'both',      active: true },
-    { id: 'internet',    label: 'Internet',           category: 'assinaturas',  amount: 0, person: 'both',      active: true },
-    { id: 'cel_tereza',  label: 'Celular Tereza',     category: 'assinaturas',  amount: 0, person: 'tereza',    active: true },
-    { id: 'cel_sebas',   label: 'Celular Sebastião',  category: 'assinaturas',  amount: 0, person: 'sebastiao', active: true },
-    { id: 'netflix',     label: 'Netflix',            category: 'assinaturas',  amount: 0, person: 'tereza',    active: true },
-    { id: 'spotify',     label: 'Spotify',            category: 'assinaturas',  amount: 0, person: 'tereza',    active: true },
-    { id: 'seguro_auto', label: 'Seguro do Carro',    category: 'manutencao',   amount: 0, person: 'both',      active: true },
-    { id: 'plano_saude', label: 'Plano de Saúde',     category: 'saude',        amount: 0, person: 'both',      active: true },
+    { id: 'aluguel',     label: 'Aluguel/Condomínio', category: 'custos_fixos_essenciais', amount: 0, person: 'both',      active: true },
+    { id: 'luz',         label: 'Luz',                category: 'custos_fixos_essenciais', amount: 0, person: 'both',      active: true },
+    { id: 'agua',        label: 'Água',               category: 'custos_fixos_essenciais', amount: 0, person: 'both',      active: true },
+    { id: 'internet',    label: 'Internet',           category: 'vida_facilitada', amount: 0, person: 'both',      active: true },
+    { id: 'cel_tereza',  label: 'Celular Tereza',     category: 'vida_facilitada', amount: 0, person: 'tereza',    active: true },
+    { id: 'cel_sebas',   label: 'Celular Sebastião',  category: 'vida_facilitada', amount: 0, person: 'sebastiao', active: true },
+    { id: 'netflix',     label: 'Netflix',            category: 'vida_facilitada', amount: 0, person: 'tereza',    active: true },
+    { id: 'spotify',     label: 'Spotify',            category: 'vida_facilitada', amount: 0, person: 'tereza',    active: true },
+    { id: 'seguro_auto', label: 'Seguro do Carro',    category: 'custos_fixos_essenciais', amount: 0, person: 'both',      active: true },
+    { id: 'plano_saude', label: 'Plano de Saúde',     category: 'vida_facilitada', amount: 0, person: 'both',      active: true },
   ],
   goals: {
-    tereza:    { custos_fixos: 25, assinaturas: 10, manutencao: 10, investimentos: 20, inv_viagem: 5, beleza_lazer: 10, educacao: 5, saude: 5, saque: 5, imposto_renda: 5 },
-    sebastiao: { custos_fixos: 30, assinaturas: 10, manutencao: 10, investimentos: 15, inv_viagem: 5, beleza_lazer: 10, educacao: 5, saude: 10, saque: 5, imposto_renda: 0 },
+    tereza:    { custos_fixos_essenciais: 35, vida_facilitada: 20, prazer_lazer: 15, metas_sonhos: 10, liberdade_financeira: 15, conhecimento: 5 },
+    sebastiao: { custos_fixos_essenciais: 35, vida_facilitada: 20, prazer_lazer: 15, metas_sonhos: 10, liberdade_financeira: 15, conhecimento: 5 },
   },
   subscriptions:          [],
   subscriptionCategories: DEFAULT_SUB_CATEGORIES,
@@ -372,7 +423,52 @@ export function FinanceProvider({ children }) {
       .filter(tx => tx.installmentTotal > 1)
       .reduce((acc, tx) => acc + (tx.installmentTotal - tx.installmentNumber) * tx.installmentAmount, 0)
 
-    return { totalIncome, byCategory, byPerson, fixedPaid, installmentDebt, txs, bills, incomes, extraPayments }
+    // Agrega gastos por categoria principal
+    const byMainCategory = {}
+    GENERAL_CATEGORIES.forEach(cat => {
+      byMainCategory[cat.id] = { tereza: 0, sebastiao: 0, total: 0 }
+    })
+    // Transações de cartão
+    txs.forEach(tx => {
+      const person = cardPersonMap[tx.cardId] || tx.person
+      const mainCat = SUBCATEGORY_TO_MAIN[tx.category] || 'custos_fixos_essenciais'
+      if (byMainCategory[mainCat]) {
+        byMainCategory[mainCat].total += tx.amount
+        if (person === 'tereza' || person === 'sebastiao') {
+          byMainCategory[mainCat][person] = (byMainCategory[mainCat][person] || 0) + tx.amount
+        }
+      }
+    })
+    // Pagamentos avulsos
+    extraPayments.forEach(ep => {
+      const mainCat = SUBCATEGORY_TO_MAIN[ep.category] || ep.category
+      if (!byMainCategory[mainCat]) return
+      const amt = ep.amount || 0
+      byMainCategory[mainCat].total += amt
+      if (ep.person === 'both') {
+        byMainCategory[mainCat].tereza    = (byMainCategory[mainCat].tereza    || 0) + amt / 2
+        byMainCategory[mainCat].sebastiao = (byMainCategory[mainCat].sebastiao || 0) + amt / 2
+      } else if (ep.person === 'tereza' || ep.person === 'sebastiao') {
+        byMainCategory[mainCat][ep.person] = (byMainCategory[mainCat][ep.person] || 0) + amt
+      }
+    })
+    // Contas fixas pagas
+    bills.filter(b => b.paid).forEach(b => {
+      const cfg = config.fixedBills.find(f => f.id === b.id)
+      if (!cfg) return
+      const amt = b.amount || cfg.amount || 0
+      const mainCat = SUBCATEGORY_TO_MAIN[cfg.category] || cfg.category
+      if (!byMainCategory[mainCat]) return
+      byMainCategory[mainCat].total += amt
+      if (cfg.person === 'both') {
+        byMainCategory[mainCat].tereza    = (byMainCategory[mainCat].tereza    || 0) + amt / 2
+        byMainCategory[mainCat].sebastiao = (byMainCategory[mainCat].sebastiao || 0) + amt / 2
+      } else if (cfg.person === 'tereza' || cfg.person === 'sebastiao') {
+        byMainCategory[mainCat][cfg.person] = (byMainCategory[mainCat][cfg.person] || 0) + amt
+      }
+    })
+
+    return { totalIncome, byCategory, byMainCategory, byPerson, fixedPaid, installmentDebt, txs, bills, incomes, extraPayments }
   }, [config, allMonths, monthData, currentMonth])
 
   const value = {
@@ -389,7 +485,7 @@ export function FinanceProvider({ children }) {
     saveBenefitDeposit, saveBenefitExpense, deleteBenefitExpense,
     saveBenefitCards, saveBenefitCategories,
     computedData,
-    GENERAL_CATEGORIES, CARD_CATEGORIES, PESSOAS,
+    GENERAL_CATEGORIES, CARD_CATEGORIES, SUBCATEGORY_TO_MAIN, PESSOAS,
   }
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip } from 'recharts'
 import { useFinance } from '../contexts/FinanceContext'
 import { formatBRL, formatPct, monthLabel } from '../utils/calculations'
 
@@ -8,6 +7,40 @@ const parseAmt = (str) => parseFloat(String(str).replace(',', '.')) || 0
 const PERSONS = [
   { id: 'tereza',    label: 'Tereza',    color: 'var(--pink)',   avatar: 'T', grad: 'var(--grad-red)' },
   { id: 'sebastiao', label: 'Sebastião', color: 'var(--purple)', avatar: 'S', grad: 'var(--grad-blue)' },
+]
+
+// Tabela de categorias: estrutura visual para a legenda
+const CATEGORY_LEGEND = [
+  {
+    id: 'custos_fixos_essenciais', label: 'Custos Fixos Essenciais', icon: '🏠', color: '#EF4444',
+    description: 'Mantêm a vida funcionando; previsíveis e recorrentes',
+    subs: ['Supermercado', 'Carro', 'Seguros', 'Plano Celular'],
+  },
+  {
+    id: 'vida_facilitada', label: 'Vida Facilitada', icon: '✨', color: '#8B5CF6',
+    description: 'Facilitam a rotina, saúde, organização e bem-estar',
+    subs: ['Assinaturas', 'Transporte por app', 'Casa & Utensílios', 'Farmácia', 'Beleza & Estética', 'Pets'],
+  },
+  {
+    id: 'prazer_lazer', label: 'Prazer & Lazer', icon: '🎉', color: '#EC4899',
+    description: 'Consumo por desejo, conveniência ou lazer',
+    subs: ['Lanches / Restaurantes', 'E-commerce', 'Vestuário'],
+  },
+  {
+    id: 'metas_sonhos', label: 'Metas & Sonhos', icon: '🌟', color: '#06B6D4',
+    description: 'Gastos com intenção emocional, experiências e vínculos',
+    subs: ['Viagem', 'Presentes e Doações'],
+  },
+  {
+    id: 'liberdade_financeira', label: 'Liberdade Financeira', icon: '📈', color: '#10B981',
+    description: 'Dinheiro que não financia o presente, mas o futuro',
+    subs: ['Valor Investido'],
+  },
+  {
+    id: 'conhecimento', label: 'Conhecimento', icon: '📚', color: '#3B82F6',
+    description: 'Cursos, livros e aprendizado contínuo',
+    subs: ['Educação'],
+  },
 ]
 
 export default function Metas() {
@@ -20,9 +53,10 @@ export default function Metas() {
   const [activePerson, setActivePerson] = useState('tereza')
   const [editing, setEditing]           = useState(false)
   const [draftGoals, setDraftGoals]     = useState(null)
+  const [showLegend, setShowLegend]     = useState(false)
 
   // ── investment edit state ──────────────────────────────
-  const [invEdit, setInvEdit]   = useState({}) // `${person}_portfolio` | `${person}_monthly`
+  const [invEdit, setInvEdit]   = useState({})
   const [invFocus, setInvFocus] = useState(null)
 
   const data      = computedData()
@@ -67,34 +101,15 @@ export default function Metas() {
   const tMonthly   = PERSONS.reduce((a, p) => a + (getInvData(p.id).monthlyAmount  || 0), 0)
 
   // ── goals helpers ──────────────────────────────────────
-  const personGoals   = goals[activePerson] || {}
-  const totalIncome   = data.totalIncome[activePerson] || 0
-  const totalGoalPct  = Object.values(draftGoals || personGoals).reduce((a, v) => a + (parseFloat(v) || 0), 0)
+  const personGoals  = goals[activePerson] || {}
+  const totalIncome  = data.totalIncome[activePerson] || 0
+  const totalGoalPct = Object.values(draftGoals || personGoals).reduce((a, v) => a + (parseFloat(v) || 0), 0)
 
   const startEdit = () => { setDraftGoals({ ...personGoals }); setEditing(true) }
   const saveGoals = async () => {
     await saveConfig({ goals: { ...goals, [activePerson]: draftGoals } })
     setEditing(false); setDraftGoals(null)
   }
-
-  // ── radar data ─────────────────────────────────────────
-  const radarData = GENERAL_CATEGORIES.map(cat => {
-    const goalPct  = personGoals[cat.id] || 0
-    const spentAmt = (data.byCategory[cat.id]?.[activePerson] || 0) +
-      (activePerson === 'tereza'
-        ? (config.fixedBills||[]).filter(b=>(b.person==='tereza'||b.person==='both')&&b.category===cat.id).reduce((a,b)=>a+b.amount/((b.person==='both')?2:1),0)
-        : (config.fixedBills||[]).filter(b=>(b.person==='sebastiao'||b.person==='both')&&b.category===cat.id).reduce((a,b)=>a+b.amount/((b.person==='both')?2:1),0))
-    const spentPct = totalIncome > 0 ? (spentAmt / totalIncome) * 100 : 0
-    return { subject: cat.label.split(' ')[0], meta: goalPct, gasto: parseFloat(spentPct.toFixed(1)) }
-  })
-
-  // ── investment goal amounts ────────────────────────────
-  const invGoalPct    = personGoals.investimentos || 0
-  const invViagemPct  = personGoals.inv_viagem    || 0
-  const invGoalAmt    = totalIncome * (invGoalPct   / 100)
-  const invViagemAmt  = totalIncome * (invViagemPct / 100)
-  const invActualAmt  = data.byCategory.investimentos?.[activePerson] || 0
-  const invVActualAmt = data.byCategory.inv_viagem?.[activePerson]    || 0
 
   return (
     <div className="page-body">
@@ -139,19 +154,18 @@ export default function Metas() {
       {/* Cards de lançamento por pessoa */}
       <div className="grid-2 gap-24 mb-32">
         {PERSONS.map(p => {
-          const inv        = getInvData(p.id)
-          const fkPort     = `${p.id}_portfolioValue`
-          const fkMonthly  = `${p.id}_monthlyAmount`
-          const goalPct    = (goals[p.id]?.investimentos || 0) + (goals[p.id]?.inv_viagem || 0)
-          const income     = data.totalIncome[p.id] || 0
-          const goalAmt    = income * (goalPct / 100)
-          const monthly    = inv.monthlyAmount || 0
-          const pct        = goalAmt > 0 ? Math.min((monthly / goalAmt) * 100, 100) : 0
-          const over       = goalAmt > 0 && monthly > goalAmt
+          const inv       = getInvData(p.id)
+          const fkPort    = `${p.id}_portfolioValue`
+          const fkMonthly = `${p.id}_monthlyAmount`
+          const goalPct   = personGoals.liberdade_financeira || 0
+          const income    = data.totalIncome[p.id] || 0
+          const goalAmt   = income * (goalPct / 100)
+          const monthly   = inv.monthlyAmount || 0
+          const pct       = goalAmt > 0 ? Math.min((monthly / goalAmt) * 100, 100) : 0
+          const over      = goalAmt > 0 && monthly > goalAmt
 
           return (
             <div key={p.id} className="card" style={{ borderTop: `4px solid ${p.color}` }}>
-              {/* Header */}
               <div className="flex items-center gap-10 mb-20">
                 <div className="avatar" style={{ background: p.color, width: 40, height: 40, fontSize: 16 }}>{p.avatar}</div>
                 <div>
@@ -162,23 +176,16 @@ export default function Metas() {
                 </div>
               </div>
 
-              {/* Saldo da carteira */}
               <div style={{ marginBottom: 18 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                  Saldo atual da carteira
-                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Saldo atual da carteira</div>
                 <div className="flex items-center gap-6">
                   <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>R$</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0,00"
+                  <input type="text" inputMode="decimal" placeholder="0,00"
                     value={getInvDisplay(p.id, 'portfolioValue')}
                     onChange={e => setInvEdit(prev => ({ ...prev, [fkPort]: e.target.value }))}
                     onFocus={() => setInvFocus(fkPort)}
                     onBlur={() => handleInvBlur(p.id, 'portfolioValue')}
-                    style={inputSt(invFocus === fkPort)}
-                  />
+                    style={inputSt(invFocus === fkPort)} />
                 </div>
                 {inv.updatedAt && (
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
@@ -187,48 +194,33 @@ export default function Metas() {
                 )}
               </div>
 
-              {/* Valor investido no mês */}
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                  Valor investido este mês
-                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Valor investido este mês</div>
                 <div className="flex items-center gap-6">
                   <span style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>R$</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0,00"
+                  <input type="text" inputMode="decimal" placeholder="0,00"
                     value={getInvDisplay(p.id, 'monthlyAmount')}
                     onChange={e => setInvEdit(prev => ({ ...prev, [fkMonthly]: e.target.value }))}
                     onFocus={() => setInvFocus(fkMonthly)}
                     onBlur={() => handleInvBlur(p.id, 'monthlyAmount')}
-                    style={inputSt(invFocus === fkMonthly)}
-                  />
+                    style={inputSt(invFocus === fkMonthly)} />
                 </div>
               </div>
 
-              {/* Meta vs aportado */}
               {goalAmt > 0 && (
                 <div>
                   <div className="flex justify-between items-center mb-5" style={{ fontSize: 12 }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>
-                      Meta: {formatBRL(goalAmt)} ({goalPct}% da renda)
-                    </span>
+                    <span style={{ color: 'var(--text-secondary)' }}>Meta: {formatBRL(goalAmt)} ({goalPct}% da renda)</span>
                     <span style={{ fontWeight: 700, color: over ? 'var(--green)' : pct >= 80 ? 'var(--orange)' : 'var(--text-secondary)' }}>
-                      {pct.toFixed(0)}%
-                      {over && ' ✓'}
+                      {pct.toFixed(0)}%{over && ' ✓'}
                     </span>
                   </div>
                   <div className="progress-bar-wrap" style={{ height: 7 }}>
-                    <div className="progress-bar-fill" style={{
-                      width: `${pct}%`,
-                      background: over ? 'var(--green)' : p.color,
-                    }} />
+                    <div className="progress-bar-fill" style={{ width: `${pct}%`, background: over ? 'var(--green)' : p.color }} />
                   </div>
                 </div>
               )}
 
-              {/* Totais do card */}
               <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
                 <span style={{ color: 'var(--text-secondary)' }}>
                   Carteira: <strong style={{ color: 'var(--text-primary)', fontSize: 13 }}>{formatBRL(inv.portfolioValue || 0)}</strong>
@@ -276,9 +268,60 @@ export default function Metas() {
       </div>
 
       {/* ══════════════════════════════════════════════════
-          SEÇÃO — METAS POR CATEGORIA (existente)
+          SEÇÃO — METAS POR CATEGORIA
       ══════════════════════════════════════════════════ */}
-      <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 20 }}>🎯 Metas por Categoria</div>
+      <div className="flex justify-between items-center mb-6">
+        <div style={{ fontWeight: 800, fontSize: 18 }}>🎯 Metas por Categoria</div>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => setShowLegend(v => !v)}
+          style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          📋 {showLegend ? 'Ocultar legenda' : 'Ver legenda de categorias'}
+        </button>
+      </div>
+
+      {/* Legenda — tabela de categorias */}
+      {showLegend && (
+        <div className="card mb-24" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: 14 }}>
+            📋 Estrutura de Categorias
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: 'var(--bg)', borderBottom: '2px solid var(--border)' }}>
+                  <th style={{ padding: '10px 20px', textAlign: 'left', fontWeight: 700, whiteSpace: 'nowrap' }}>Categoria Principal</th>
+                  <th style={{ padding: '10px 20px', textAlign: 'left', fontWeight: 700 }}>Subcategorias do Cartão</th>
+                  <th style={{ padding: '10px 20px', textAlign: 'left', fontWeight: 700 }}>Como pensar esse gasto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {CATEGORY_LEGEND.map((cat, i) => (
+                  <tr key={cat.id} style={{ borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? 'transparent' : 'var(--bg)' }}>
+                    <td style={{ padding: '12px 20px', whiteSpace: 'nowrap' }}>
+                      <div className="flex items-center gap-8">
+                        <div style={{ width: 10, height: 10, borderRadius: 3, background: cat.color, flexShrink: 0 }} />
+                        <span style={{ fontWeight: 700 }}>{cat.icon} {cat.label}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px 20px' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {cat.subs.map(s => (
+                          <span key={s} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: cat.color + '18', color: cat.color, fontWeight: 500 }}>
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td style={{ padding: '12px 20px', color: 'var(--text-secondary)', fontSize: 12 }}>{cat.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Person toggle */}
       <div className="flex gap-12 mb-24">
@@ -294,66 +337,7 @@ export default function Metas() {
         ))}
       </div>
 
-      <div className="grid-2 mb-24">
-        {/* Investimentos vs Meta */}
-        <div className="card card-lg">
-          <div className="section-title">📈 Investimentos Geral</div>
-          <div className="metric-card mb-16" style={{ background: 'var(--grad-green)' }}>
-            <div className="metric-card-label">Meta mensal</div>
-            <div className="metric-card-value">{formatBRL(invGoalAmt)}</div>
-            <div className="metric-card-sub">{invGoalPct}% da renda · Investido: {formatBRL(invActualAmt)}</div>
-          </div>
-          <div style={{ marginBottom: 8 }}>
-            <div className="flex justify-between" style={{ fontSize: 12, marginBottom: 4 }}>
-              <span>Progresso</span>
-              <span style={{ fontWeight: 600, color: invActualAmt >= invGoalAmt ? 'var(--green)' : 'var(--orange)' }}>
-                {invGoalAmt > 0 ? formatPct((invActualAmt / invGoalAmt) * 100) : '0%'}
-              </span>
-            </div>
-            <div className="progress-bar-wrap" style={{ height: 8 }}>
-              <div className="progress-bar-fill" style={{ width: `${Math.min(invGoalAmt > 0 ? (invActualAmt / invGoalAmt) * 100 : 0, 100)}%`, background: 'var(--grad-green)' }} />
-            </div>
-          </div>
-
-          <div className="section-title mt-16">✈️ Investimentos Viagem</div>
-          <div className="metric-card mb-16" style={{ background: 'var(--grad-blue)' }}>
-            <div className="metric-card-label">Meta mensal</div>
-            <div className="metric-card-value">{formatBRL(invViagemAmt)}</div>
-            <div className="metric-card-sub">{invViagemPct}% da renda · Investido: {formatBRL(invVActualAmt)}</div>
-          </div>
-          <div>
-            <div className="flex justify-between" style={{ fontSize: 12, marginBottom: 4 }}>
-              <span>Progresso</span>
-              <span style={{ fontWeight: 600, color: invVActualAmt >= invViagemAmt ? 'var(--green)' : 'var(--orange)' }}>
-                {invViagemAmt > 0 ? formatPct((invVActualAmt / invViagemAmt) * 100) : '0%'}
-              </span>
-            </div>
-            <div className="progress-bar-wrap" style={{ height: 8 }}>
-              <div className="progress-bar-fill" style={{ width: `${Math.min(invViagemAmt > 0 ? (invVActualAmt / invViagemAmt) * 100 : 0, 100)}%`, background: 'var(--grad-blue)' }} />
-            </div>
-          </div>
-        </div>
-
-        {/* Radar */}
-        <div className="card card-lg">
-          <div className="section-title">🎯 Radar — Meta vs Gasto Real (%)</div>
-          <ResponsiveContainer width="100%" height={280}>
-            <RadarChart data={radarData}>
-              <PolarGrid />
-              <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} />
-              <Radar name="Meta"  dataKey="meta"  stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.2} />
-              <Radar name="Gasto" dataKey="gasto" stroke="#EC4899" fill="#EC4899" fillOpacity={0.2} />
-              <Tooltip formatter={(v) => `${v}%`} />
-            </RadarChart>
-          </ResponsiveContainer>
-          <div className="flex gap-16" style={{ justifyContent: 'center', fontSize: 12 }}>
-            <div className="flex items-center gap-4"><div style={{ width: 10, height: 10, borderRadius: 2, background: '#8B5CF6' }} /> Meta</div>
-            <div className="flex items-center gap-4"><div style={{ width: 10, height: 10, borderRadius: 2, background: '#EC4899' }} /> Gasto</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Metas por categoria */}
+      {/* Metas por categoria principal */}
       <div className="card">
         <div className="flex justify-between items-center mb-20">
           <div className="section-title" style={{ marginBottom: 0 }}>
@@ -376,24 +360,30 @@ export default function Metas() {
         {GENERAL_CATEGORIES.map(cat => {
           const goalPct  = editing ? (draftGoals?.[cat.id] || 0) : (personGoals[cat.id] || 0)
           const goalAmt  = totalIncome * (goalPct / 100)
-          const spentAmt = data.byCategory[cat.id]?.[activePerson] || 0
+          // Usa byMainCategory que já agrega subcategorias do cartão + contas fixas + pagamentos avulsos
+          const spentAmt = data.byMainCategory?.[cat.id]?.[activePerson] || 0
           const pct      = goalAmt > 0 ? Math.min((spentAmt / goalAmt) * 100, 100) : 0
           const over     = spentAmt > goalAmt && goalAmt > 0
 
           return (
-            <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderTop: '1px solid var(--border)' }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: cat.color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>
+            <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 0', borderTop: '1px solid var(--border)' }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: cat.color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
                 {cat.icon}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="flex justify-between items-center" style={{ marginBottom: 5 }}>
-                  <span style={{ fontWeight: 600, fontSize: 13 }}>{cat.label}</span>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: 13 }}>{cat.label}</span>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
+                      {CATEGORY_LEGEND.find(c => c.id === cat.id)?.subs.join(' · ')}
+                    </div>
+                  </div>
                   <div className="flex items-center gap-8">
                     <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                      {formatBRL(spentAmt)} / {formatBRL(goalAmt)}
+                      {formatBRL(spentAmt)} / {goalAmt > 0 ? formatBRL(goalAmt) : '—'}
                     </span>
                     {over && <span className="badge badge-red">acima da meta</span>}
-                    {!over && spentAmt > 0 && <span className="badge badge-green">✓</span>}
+                    {!over && spentAmt > 0 && goalAmt > 0 && <span className="badge badge-green">✓</span>}
                   </div>
                 </div>
                 <div className="progress-bar-wrap">
@@ -413,7 +403,7 @@ export default function Metas() {
                 </div>
               ) : (
                 <div style={{ width: 52, textAlign: 'right', fontWeight: 700, fontSize: 14, color: cat.color }}>
-                  {goalPct}%
+                  {goalPct > 0 ? `${goalPct}%` : '—'}
                 </div>
               )}
             </div>
