@@ -281,9 +281,71 @@ function parseSantander(lines, year) {
   return transactions.length > 2 ? transactions : parseGeneric(lines, year)
 }
 
-// Sofisa
+// Sofisa — formato multi-coluna: Data | Descrição | Valor Original (pode ser moeda
+// estrangeira, ex: JPY) | Valor Equivalente US$ | Taxa Conversão | Valor em Real
+// O parser genérico falha porque captura o 1º valor numérico da linha (ex: JPY 83.720,00 → 83720,
+// descartado por > 50000) em vez do último (Valor em Real). A correção usa sempre o ÚLTIMO valor.
 function parseSofisa(lines, year) {
-  return parseGeneric(lines, year)
+  const transactions = []
+  const amtRe = /(\d{1,3}(?:\.\d{3})*,\d{2})/g
+  const dateRe = /^(\d{2}\/\d{2}\/\d{2,4})\s/
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (trimmed.length < 10) continue
+
+    const lower = trimmed.toLowerCase()
+    if (/valor total|saldo total|total a pagar|fechamento|vencimento|demais encargos|compras parceladas/.test(lower)) continue
+
+    const dateM = trimmed.match(dateRe)
+    if (!dateM) continue
+
+    const date = parseDate(dateM[1], year)
+    if (!date) continue
+
+    // Todos os valores numéricos da linha
+    const matches = [...trimmed.matchAll(amtRe)]
+    if (matches.length === 0) continue
+
+    // Último valor = Valor em Real (em compras estrangeiras há colunas intermediárias)
+    const lastMatch = matches[matches.length - 1]
+    const amount = parseAmount(lastMatch[1])
+    if (amount <= 0 || amount > 50000) continue
+
+    // Descrição: entre o fim da data e o início do 1º valor numérico
+    const firstAmt = matches[0]
+    let desc = trimmed.slice(dateM[0].length, firstAmt.index).trim()
+
+    // Limpa código de moeda estrangeira no fim (ex: "JPY", "USD")
+    desc = desc.replace(/\s+[A-Z]{3}\s*$/, '')
+    // Limpa "R$ -" e "R$" soltos
+    desc = desc.replace(/R\$\s*-\s*/g, '').replace(/R\$\s*(?!\d)/g, '')
+    desc = desc.replace(/\s{2,}/g, ' ').trim()
+    if (desc.length < 2) continue
+
+    // Detecta parcelamento
+    let installmentNumber = 1, installmentTotal = 1
+    const parcelM = desc.match(/\b(\d{1,2})\/(\d{1,2})\b/)
+    if (parcelM && parseInt(parcelM[2]) > 1) {
+      installmentNumber = parseInt(parcelM[1])
+      installmentTotal  = parseInt(parcelM[2])
+      desc = desc.replace(parcelM[0], '').trim()
+    }
+
+    transactions.push({
+      id: uid(),
+      date,
+      description: desc,
+      amount,
+      installmentNumber,
+      installmentTotal,
+      installmentAmount: amount,
+      category: autoCategory(desc),
+      person: null,
+    })
+  }
+
+  return transactions.length > 0 ? transactions : parseGeneric(lines, year)
 }
 
 // ─── Entry point ─────────────────────────────────────────────
