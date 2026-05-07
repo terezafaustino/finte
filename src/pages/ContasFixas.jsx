@@ -2,33 +2,28 @@ import { useState, useMemo } from 'react'
 import { useFinance } from '../contexts/FinanceContext'
 import { formatBRL, monthLabel } from '../utils/calculations'
 
-// ─── estilos inline para remover setas de input number ───
-const inputNoSpinner = {
-  MozAppearance: 'textfield',
-  WebkitAppearance: 'none',
-}
+const inputNoSpinner = { MozAppearance: 'textfield', WebkitAppearance: 'none' }
 
 export default function ContasFixas() {
   const {
     config, monthData, currentMonth,
-    toggleFixedBill, toggleCardPayment,
+    toggleFixedBill, toggleCardPayment, setCardPaymentPerson,
     saveExtraPayment, deleteExtraPayment,
     GENERAL_CATEGORIES,
   } = useFinance()
 
-  const [editAmount, setEditAmount]   = useState({})
+  const [editAmount, setEditAmount]         = useState({})
   const [showAddPayment, setShowAddPayment] = useState(false)
-  const [newPayment, setNewPayment]   = useState({ label: '', category: 'custos_fixos', amount: '', person: 'both' })
-  const [saving, setSaving]           = useState(false)
+  const [newPayment, setNewPayment]         = useState({ label: '', category: 'custos_fixos', amount: '', person: 'both' })
+  const [saving, setSaving]                 = useState(false)
 
-  // ── Dados das contas fixas ──
+  // ── Contas fixas ──
   const bills    = config.fixedBills || []
   const recorded = monthData.fixedBills || []
 
   const getRecord = (id) => recorded.find(r => r.id === id)
   const isPaid    = (id) => getRecord(id)?.paid === true
 
-  // ── Totais das contas fixas ──
   const totalExpected = bills.filter(b => b.active).reduce((a, b) => a + (b.amount || 0), 0)
   const totalPaid     = bills.filter(b => isPaid(b.id)).reduce((a, b) => {
     const rec = getRecord(b.id)
@@ -37,9 +32,16 @@ export default function ContasFixas() {
   const paidCount    = bills.filter(b => isPaid(b.id)).length
   const pendingCount = bills.filter(b => b.active && !isPaid(b.id)).length
 
-  // ── Dados dos cartões ──
-  const cards = config.cards || []
+  // ── Cartões ──
+  const cards        = config.cards || []
   const cardPayments = monthData.cardPayments || []
+
+  // Pessoa responsável pelo pagamento da fatura deste cartão neste mês
+  // Prioridade: override mensal (cardPayments) > padrão do config
+  const getCardPerson = (card) => {
+    const rec = cardPayments.find(p => p.cardId === card.id)
+    return rec?.person || card.person || 'tereza'
+  }
 
   const cardTotals = useMemo(() => {
     const txs = monthData.transactions || []
@@ -57,7 +59,7 @@ export default function ContasFixas() {
   const totalCardExpected = cards.reduce((a, c) => a + (cardTotals[c.id] || 0), 0)
   const totalCardPaid     = cards.filter(c => isCardPaid(c.id)).reduce((a, c) => a + (cardTotals[c.id] || 0), 0)
 
-  // ── Dados dos pagamentos avulsos ──
+  // ── Pagamentos avulsos ──
   const extraPayments = monthData.extraPayments || []
   const totalExtra    = extraPayments.reduce((a, p) => a + (p.amount || 0), 0)
 
@@ -69,7 +71,7 @@ export default function ContasFixas() {
   const catColor = (id) => GENERAL_CATEGORIES.find(c => c.id === id)?.color || '#94A3B8'
   const catIcon  = (id) => GENERAL_CATEGORIES.find(c => c.id === id)?.icon  || '📋'
 
-  // ── Handlers ──
+  // ── Handlers contas fixas ──
   const handleToggle = async (bill) => {
     const currentRecord = getRecord(bill.id)
     const nowPaid = !isPaid(bill.id)
@@ -81,12 +83,11 @@ export default function ContasFixas() {
 
   const handleAmountBlur = async (bill, value) => {
     const val = parseFloat(value) || bill.amount
-    const paid = isPaid(bill.id)
-    // Salva o valor sempre, independente do status pago/pendente
-    await toggleFixedBill(bill.id, paid, val)
+    await toggleFixedBill(bill.id, isPaid(bill.id), val)
     setEditAmount(prev => ({ ...prev, [bill.id]: undefined }))
   }
 
+  // ── Handler pagamentos avulsos ──
   const handleAddPayment = async () => {
     const amt = parseFloat(newPayment.amount)
     if (!newPayment.label.trim() || !amt || amt <= 0) return
@@ -107,7 +108,7 @@ export default function ContasFixas() {
     }
   }
 
-  // Agrupa contas fixas por categoria
+  // Agrupa contas por categoria
   const grouped = {}
   bills.forEach(b => {
     if (!grouped[b.category]) grouped[b.category] = []
@@ -120,7 +121,7 @@ export default function ContasFixas() {
   return (
     <div className="page-body">
 
-      {/* ── KPIs gerais ── */}
+      {/* ── KPIs ── */}
       <div className="grid-3 mb-24">
         <div className="metric-card" style={{ background: 'var(--grad-primary)' }}>
           <div className="metric-card-icon">🏠</div>
@@ -132,17 +133,19 @@ export default function ContasFixas() {
           <div className="metric-card-icon">✅</div>
           <div className="metric-card-label">Pago</div>
           <div className="metric-card-value">{formatBRL(grandPaid)}</div>
-          <div className="metric-card-sub">{grandTotal > 0 ? `${Math.round((grandPaid/grandTotal)*100)}% quitado` : '—'}</div>
+          <div className="metric-card-sub">{grandTotal > 0 ? `${Math.round((grandPaid / grandTotal) * 100)}% quitado` : '—'}</div>
         </div>
         <div className="metric-card" style={{ background: (grandTotal - grandPaid) > 0 ? 'var(--grad-orange)' : 'var(--grad-green)' }}>
           <div className="metric-card-icon">⏳</div>
           <div className="metric-card-label">Pendente</div>
           <div className="metric-card-value">{formatBRL(grandTotal - grandPaid)}</div>
-          <div className="metric-card-sub">{pendingCount + cards.filter(c => !isCardPaid(c.id) && (cardTotals[c.id] || 0) > 0).length} item(s) em aberto</div>
+          <div className="metric-card-sub">
+            {pendingCount + cards.filter(c => !isCardPaid(c.id) && (cardTotals[c.id] || 0) > 0).length} item(s) em aberto
+          </div>
         </div>
       </div>
 
-      {/* ── Progresso geral do mês ── */}
+      {/* ── Progresso ── */}
       <div className="card mb-24">
         <div className="flex justify-between items-center mb-16">
           <div>
@@ -167,7 +170,7 @@ export default function ContasFixas() {
       </div>
 
       {/* ════════════════════════════════════════════
-          BLOCO DE CARTÕES DE CRÉDITO
+          CARTÕES DE CRÉDITO
       ════════════════════════════════════════════ */}
       <div className="card mb-24">
         <div className="flex justify-between items-center mb-16">
@@ -178,7 +181,7 @@ export default function ContasFixas() {
             <div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>Cartões de Crédito</div>
               <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                Faturas do mês • {cards.length} cartão(ões)
+                Faturas do mês · {cards.length} cartão(ões)
               </div>
             </div>
           </div>
@@ -195,17 +198,18 @@ export default function ContasFixas() {
           </div>
         ) : (
           cards.map(card => {
-            const total  = cardTotals[card.id] || 0
-            const paid   = isCardPaid(card.id)
-            const paidAt = cardPaidAt(card.id)
+            const total      = cardTotals[card.id] || 0
+            const paid       = isCardPaid(card.id)
+            const paidAt     = cardPaidAt(card.id)
+            const cardPerson = getCardPerson(card)
 
             return (
               <div
                 key={card.id}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '14px 0',
-                  borderTop: '1px solid var(--border)',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '14px 0', borderTop: '1px solid var(--border)',
+                  flexWrap: 'wrap',
                 }}
               >
                 {/* Toggle pago */}
@@ -214,10 +218,10 @@ export default function ContasFixas() {
                   onClick={() => toggleCardPayment(card.id, !paid)}
                   title={paid ? 'Marcar como não pago' : 'Marcar fatura como paga'}
                   disabled={total === 0}
-                  style={{ opacity: total === 0 ? 0.4 : 1 }}
+                  style={{ opacity: total === 0 ? 0.4 : 1, flexShrink: 0 }}
                 />
 
-                {/* Cor / nome do banco */}
+                {/* Ícone do banco */}
                 <div style={{
                   width: 36, height: 36, borderRadius: 8,
                   background: card.color || '#6366F1',
@@ -227,8 +231,8 @@ export default function ContasFixas() {
                   {card.bank?.charAt(0) || '?'}
                 </div>
 
-                {/* Info */}
-                <div style={{ flex: 1 }}>
+                {/* Nome e vencimento */}
+                <div style={{ flex: 1, minWidth: 80 }}>
                   <div style={{
                     fontWeight: 600, fontSize: 14,
                     textDecoration: paid ? 'line-through' : 'none',
@@ -236,40 +240,52 @@ export default function ContasFixas() {
                   }}>
                     {card.bank} {card.brand && <span style={{ fontSize: 11, opacity: 0.7 }}>({card.brand})</span>}
                   </div>
-                  <div className="flex items-center gap-8" style={{ marginTop: 3 }}>
-                    {card.person && (
-                      <span className={`badge ${card.person === 'tereza' ? 'badge-tereza' : 'badge-sebastiao'} text-sm`}>
-                        {card.person === 'tereza' ? 'Tereza' : 'Sebastião'}
-                      </span>
-                    )}
-                    {card.dueDay && (
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Vence dia {card.dueDay}</span>
-                    )}
-                    {paid && paidAt && (
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                        Pago em {new Date(paidAt).toLocaleDateString('pt-BR')}
-                      </span>
-                    )}
-                    {total === 0 && (
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Sem transações este mês</span>
-                    )}
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    {card.dueDay ? `Vence dia ${card.dueDay}` : ''}
+                    {paid && paidAt ? ` · Pago em ${new Date(paidAt).toLocaleDateString('pt-BR')}` : ''}
+                    {total === 0 ? ' · Sem transações' : ''}
                   </div>
                 </div>
 
-                {/* Valor total da fatura */}
+                {/* Seletor de pessoa responsável */}
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  {['tereza', 'sebastiao'].map(p => {
+                    const active = cardPerson === p
+                    const color  = p === 'tereza' ? '#EC4899' : '#8B5CF6'
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => setCardPaymentPerson(card.id, p)}
+                        title={`Atribuir fatura a ${p === 'tereza' ? 'Tereza' : 'Sebastião'}`}
+                        style={{
+                          padding: '3px 9px', borderRadius: 12, cursor: 'pointer',
+                          border: `1.5px solid ${active ? color : 'var(--border)'}`,
+                          background: active ? color + '18' : 'transparent',
+                          color: active ? color : 'var(--text-muted)',
+                          fontSize: 11, fontWeight: active ? 700 : 500,
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        {p === 'tereza' ? 'Tereza' : 'Sebastião'}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Valor da fatura */}
                 <div style={{
-                  fontWeight: 700, fontSize: 15,
+                  fontWeight: 700, fontSize: 15, flexShrink: 0,
                   color: paid ? 'var(--green)' : total > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
                 }}>
                   {formatBRL(total)}
                 </div>
 
-                {/* Badge status */}
+                {/* Status */}
                 {total > 0
                   ? paid
-                    ? <span className="badge badge-green">✓ Pago</span>
-                    : <span className="badge badge-orange">Pendente</span>
-                  : <span className="badge" style={{ background: 'var(--bg)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>Sem fatura</span>
+                    ? <span className="badge badge-green" style={{ flexShrink: 0 }}>✓ Pago</span>
+                    : <span className="badge badge-orange" style={{ flexShrink: 0 }}>Pendente</span>
+                  : <span className="badge" style={{ background: 'var(--bg)', color: 'var(--text-muted)', border: '1px solid var(--border)', flexShrink: 0 }}>Sem fatura</span>
                 }
               </div>
             )
@@ -278,7 +294,7 @@ export default function ContasFixas() {
       </div>
 
       {/* ════════════════════════════════════════════
-          CONTAS FIXAS (por categoria)
+          CONTAS FIXAS
       ════════════════════════════════════════════ */}
       <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>Contas Fixas</div>
 
@@ -320,19 +336,16 @@ export default function ContasFixas() {
                   key={bill.id}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '12px 0',
-                    borderTop: '1px solid var(--border)',
+                    padding: '12px 0', borderTop: '1px solid var(--border)',
                     opacity: bill.active ? 1 : 0.4,
                   }}
                 >
-                  {/* Toggle pago */}
                   <button
                     className={`toggle ${paid ? 'on' : 'off'}`}
                     onClick={() => handleToggle(bill)}
                     title={paid ? 'Marcar como não pago' : 'Marcar como pago'}
                   />
 
-                  {/* Info */}
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: 14, textDecoration: paid ? 'line-through' : 'none', color: paid ? 'var(--text-muted)' : 'var(--text-primary)' }}>
                       {bill.label}
@@ -349,7 +362,6 @@ export default function ContasFixas() {
                     </div>
                   </div>
 
-                  {/* Valor editável — sem setas de incremento */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>R$</span>
                     <input
@@ -369,7 +381,6 @@ export default function ContasFixas() {
                     />
                   </div>
 
-                  {/* Status badge */}
                   {paid
                     ? <span className="badge badge-green">✓ Pago</span>
                     : <span className="badge badge-orange">Pendente</span>
@@ -418,7 +429,6 @@ export default function ContasFixas() {
           </button>
         </div>
 
-        {/* Formulário de adição */}
         {showAddPayment && (
           <div style={{
             background: 'var(--bg)', borderRadius: 10, padding: 16,
@@ -426,7 +436,6 @@ export default function ContasFixas() {
           }}>
             <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Novo Pagamento</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-              {/* Descrição */}
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Descrição *</label>
                 <input
@@ -441,7 +450,6 @@ export default function ContasFixas() {
                   }}
                 />
               </div>
-              {/* Categoria */}
               <div>
                 <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Categoria *</label>
                 <select
@@ -458,7 +466,6 @@ export default function ContasFixas() {
                   ))}
                 </select>
               </div>
-              {/* Valor */}
               <div>
                 <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Valor (R$) *</label>
                 <input
@@ -476,7 +483,6 @@ export default function ContasFixas() {
                   }}
                 />
               </div>
-              {/* Pessoa */}
               <div>
                 <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Responsável *</label>
                 <select
@@ -509,7 +515,6 @@ export default function ContasFixas() {
           </div>
         )}
 
-        {/* Lista de pagamentos avulsos */}
         {extraPayments.length === 0 ? (
           <div className="empty-state" style={{ padding: '20px 0' }}>
             <div className="empty-state-icon">💸</div>
@@ -524,7 +529,6 @@ export default function ContasFixas() {
                 padding: '12px 0', borderTop: '1px solid var(--border)',
               }}
             >
-              {/* Ícone categoria */}
               <div style={{
                 width: 32, height: 32, borderRadius: 8,
                 background: catColor(ep.category) + '20',
@@ -533,9 +537,8 @@ export default function ContasFixas() {
                 {catIcon(ep.category)}
               </div>
 
-              {/* Info */}
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>{ep.label}</div>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{ep.label}</div>
                 <div className="flex items-center gap-8" style={{ marginTop: 3 }}>
                   <span style={{ fontSize: 11, color: catColor(ep.category), background: catColor(ep.category) + '15', padding: '2px 6px', borderRadius: 4 }}>
                     {catLabel(ep.category)}
@@ -549,19 +552,16 @@ export default function ContasFixas() {
                 </div>
               </div>
 
-              {/* Valor */}
-              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', flexShrink: 0 }}>
-                {formatBRL(ep.amount)}
-              </div>
+              <div style={{ fontWeight: 700, fontSize: 15, flexShrink: 0 }}>{formatBRL(ep.amount)}</div>
 
-              {/* Deletar */}
               <button
                 onClick={() => deleteExtraPayment(ep.id)}
-                title="Remover pagamento"
+                title="Remover"
                 style={{
                   width: 28, height: 28, borderRadius: 6, border: 'none',
                   background: '#FEE2E2', color: '#EF4444',
-                  cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  cursor: 'pointer', fontSize: 13,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 }}
               >
                 ✕

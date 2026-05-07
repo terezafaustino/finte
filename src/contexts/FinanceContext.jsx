@@ -152,6 +152,12 @@ export function FinanceProvider({ children }) {
     })
   }, [configReady, currentMonth])
 
+  // ── Mantém allMonths sincronizado com o mês atual (monthData é realtime via onSnapshot) ──
+  useEffect(() => {
+    if (!currentMonth || !monthData || Object.keys(monthData).length === 0) return
+    setAllMonths(prev => ({ ...prev, [currentMonth]: monthData }))
+  }, [monthData, currentMonth])
+
   // ── CONFIG ──
   const saveConfig = useCallback(async (updates) => {
     const newCfg = { ...config, ...updates }
@@ -169,13 +175,26 @@ export function FinanceProvider({ children }) {
     await updateDoc(doc(db, 'months', currentMonth), { fixedBills: bills })
   }, [monthData, currentMonth])
 
-  // ── PAGAMENTO DE CARTÃO (status pago/não pago na aba Contas) ──
+  // ── PAGAMENTO DE CARTÃO ──
   const toggleCardPayment = useCallback(async (cardId, paid) => {
     const payments = [...(monthData.cardPayments || [])]
     const idx = payments.findIndex(p => p.cardId === cardId)
-    const entry = { cardId, paid, paidAt: paid ? new Date().toISOString() : null }
+    const existing = payments[idx] || {}
+    const entry = { ...existing, cardId, paid, paidAt: paid ? new Date().toISOString() : null }
     if (idx >= 0) payments[idx] = entry
     else payments.push(entry)
+    await updateDoc(doc(db, 'months', currentMonth), { cardPayments: payments })
+  }, [monthData, currentMonth])
+
+  // Define (ou altera) a pessoa responsável pelo pagamento da fatura do cartão neste mês
+  const setCardPaymentPerson = useCallback(async (cardId, person) => {
+    const payments = [...(monthData.cardPayments || [])]
+    const idx = payments.findIndex(p => p.cardId === cardId)
+    if (idx >= 0) {
+      payments[idx] = { ...payments[idx], person }
+    } else {
+      payments.push({ cardId, paid: false, paidAt: null, person })
+    }
     await updateDoc(doc(db, 'months', currentMonth), { cardPayments: payments })
   }, [monthData, currentMonth])
 
@@ -283,30 +302,44 @@ export function FinanceProvider({ children }) {
 
   // ── COMPUTED ──
   const computedData = useCallback((monthKey) => {
-    const key   = monthKey || currentMonth
-    const mData = allMonths[key] || monthData
+    const key = monthKey || currentMonth
+    // Para o mês atual: sempre usa monthData (realtime via onSnapshot)
+    // Para meses anteriores: usa allMonths (snapshot estático)
+    const mData = key === currentMonth ? monthData : (allMonths[key] || {})
+
     const txs           = mData.transactions  || []
     const bills         = mData.fixedBills    || []
     const incomes       = mData.incomes       || []
     const extraPayments = mData.extraPayments || []
+    const cardPmts      = mData.cardPayments  || []
+
+    // Mapa cardId → pessoa responsável (override mensal ou padrão do config)
+    const cardPersonMap = {}
+    config.cards.forEach(card => {
+      const override = cardPmts.find(p => p.cardId === card.id)
+      cardPersonMap[card.id] = override?.person || card.person || 'tereza'
+    })
 
     const totalIncome = { tereza: 0, sebastiao: 0 }
     config.incomes.forEach(inc => {
       const recorded = incomes.find(i => i.id === inc.id)
       const val = recorded ? recorded.amount : inc.amount
-      if (inc.person === 'tereza') totalIncome.tereza += val
+      if (inc.person === 'tereza')      totalIncome.tereza    += val
       else if (inc.person === 'sebastiao') totalIncome.sebastiao += val
     })
 
     const byCategory = {}
     const byPerson   = { tereza: 0, sebastiao: 0 }
 
-    // Transações de cartão
+    // Transações de cartão — atribuídas à pessoa responsável pelo cartão neste mês
     txs.forEach(tx => {
+      const person = cardPersonMap[tx.cardId] || tx.person
       if (!byCategory[tx.category]) byCategory[tx.category] = { tereza: 0, sebastiao: 0, total: 0 }
-      byCategory[tx.category][tx.person] = (byCategory[tx.category][tx.person] || 0) + tx.amount
       byCategory[tx.category].total += tx.amount
-      if (tx.person === 'tereza' || tx.person === 'sebastiao') byPerson[tx.person] += tx.amount
+      if (person === 'tereza' || person === 'sebastiao') {
+        byCategory[tx.category][person] = (byCategory[tx.category][person] || 0) + tx.amount
+        byPerson[person] += tx.amount
+      }
     })
 
     // Pagamentos avulsos
@@ -348,7 +381,7 @@ export function FinanceProvider({ children }) {
     monthData, allMonths,
     loading,
     toggleFixedBill,
-    toggleCardPayment,
+    toggleCardPayment, setCardPaymentPerson,
     saveExtraPayment, deleteExtraPayment,
     saveTransactions, deleteTransaction, updateTransaction,
     saveIncome,

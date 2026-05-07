@@ -44,16 +44,15 @@ export default function Dashboard() {
   // Distribuição por categoria (donut)
   const catData = useMemo(() => {
     const merged = {}
-    // Contas fixas
+    // Contas fixas pagas
     ;(monthData.fixedBills || []).filter(b => b.paid).forEach(b => {
       const cfg = config.fixedBills.find(f => f.id === b.id)
       if (!cfg) return
       const cat = cfg.category
       merged[cat] = (merged[cat] || 0) + (b.amount || cfg.amount || 0)
     })
-    // Cartão
+    // Transações de cartão (mapeia categorias cartão → geral)
     ;(monthData.transactions || []).forEach(tx => {
-      // Mapeia categorias cartão → geral
       const catMap = {
         supermercado:'custos_fixos', restaurantes:'beleza_lazer', ecommerce:'beleza_lazer',
         vestuario:'beleza_lazer', casa_utensílios:'custos_fixos', assinaturas_card:'assinaturas',
@@ -62,6 +61,10 @@ export default function Dashboard() {
       }
       const generalCat = catMap[tx.category] || 'custos_fixos'
       merged[generalCat] = (merged[generalCat] || 0) + tx.amount
+    })
+    // Pagamentos avulsos (já usam GENERAL_CATEGORIES diretamente)
+    ;(monthData.extraPayments || []).forEach(ep => {
+      merged[ep.category] = (merged[ep.category] || 0) + (ep.amount || 0)
     })
     return Object.entries(merged).map(([id, value]) => {
       const cat = GENERAL_CATEGORIES.find(c => c.id === id)
