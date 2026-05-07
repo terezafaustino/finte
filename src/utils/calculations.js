@@ -41,8 +41,9 @@ export const yearMonths = (year) => {
 export const calcMonthTotals = (monthData, config) => {
   if (!monthData || !config) return { total: 0, tereza: 0, sebastiao: 0 }
 
-  const txs   = monthData.transactions || []
-  const bills = monthData.fixedBills   || []
+  const txs           = monthData.transactions  || []
+  const bills         = monthData.fixedBills    || []
+  const extraPayments = monthData.extraPayments || []
 
   let tereza = 0, sebastiao = 0
 
@@ -57,9 +58,17 @@ export const calcMonthTotals = (monthData, config) => {
     const cfg = (config.fixedBills || []).find(f => f.id === b.id)
     if (!cfg) return
     const amt = b.amount || cfg.amount || 0
-    if (cfg.person === 'both')      { tereza += amt / 2; sebastiao += amt / 2 }
+    if (cfg.person === 'both')           { tereza += amt / 2; sebastiao += amt / 2 }
     else if (cfg.person === 'tereza')    tereza    += amt
     else if (cfg.person === 'sebastiao') sebastiao += amt
+  })
+
+  // Pagamentos avulsos
+  extraPayments.forEach(ep => {
+    const amt = ep.amount || 0
+    if (ep.person === 'both')           { tereza += amt / 2; sebastiao += amt / 2 }
+    else if (ep.person === 'tereza')    tereza    += amt
+    else if (ep.person === 'sebastiao') sebastiao += amt
   })
 
   return { total: tereza + sebastiao, tereza, sebastiao }

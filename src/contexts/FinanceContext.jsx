@@ -38,9 +38,7 @@ export const CARD_CATEGORIES = [
   { id: 'beleza_estetica',  label: 'Beleza & Estética',       color: '#D946EF', icon: '💅' },
   { id: 'presentes',        label: 'Presentes e Doações',     color: '#EF4444', icon: '🎁' },
   { id: 'pets',             label: 'Pets',                    color: '#84CC16', icon: '🐾' },
-  { id: 'viagem',        label: 'Viagem',         color: '#06B6D4', icon: '✈️'  },
-  { id: 'plano_celular', label: 'Plano de Celular', color: '#0EA5E9', icon: '📶' },
-  { id: 'diversos',        label: 'Imprevistos/Diversos',    color: '#94A3B8', icon: '❓' },
+  { id: 'diversos',         label: 'Imprevistos/Diversos',    color: '#94A3B8', icon: '❓' },
 ]
 
 export const PESSOAS = [
@@ -131,7 +129,12 @@ export function FinanceProvider({ children }) {
       if (snap.exists()) {
         setMonthData(snap.data())
       } else {
-        const initial = { fixedBills: [], transactions: [], incomes: [], benefitDeposits: [], benefitExpenses: [], createdAt: new Date().toISOString() }
+        const initial = {
+          fixedBills: [], transactions: [], incomes: [],
+          benefitDeposits: [], benefitExpenses: [],
+          cardPayments: [], extraPayments: [],
+          createdAt: new Date().toISOString(),
+        }
         setDoc(doc(db, 'months', currentMonth), initial)
         setMonthData(initial)
       }
@@ -166,6 +169,30 @@ export function FinanceProvider({ children }) {
     await updateDoc(doc(db, 'months', currentMonth), { fixedBills: bills })
   }, [monthData, currentMonth])
 
+  // ── PAGAMENTO DE CARTÃO (status pago/não pago na aba Contas) ──
+  const toggleCardPayment = useCallback(async (cardId, paid) => {
+    const payments = [...(monthData.cardPayments || [])]
+    const idx = payments.findIndex(p => p.cardId === cardId)
+    const entry = { cardId, paid, paidAt: paid ? new Date().toISOString() : null }
+    if (idx >= 0) payments[idx] = entry
+    else payments.push(entry)
+    await updateDoc(doc(db, 'months', currentMonth), { cardPayments: payments })
+  }, [monthData, currentMonth])
+
+  // ── PAGAMENTOS AVULSOS ──
+  const saveExtraPayment = useCallback(async (payment) => {
+    const list = [...(monthData.extraPayments || [])]
+    const idx = list.findIndex(p => p.id === payment.id)
+    if (idx >= 0) list[idx] = payment
+    else list.push(payment)
+    await updateDoc(doc(db, 'months', currentMonth), { extraPayments: list })
+  }, [monthData, currentMonth])
+
+  const deleteExtraPayment = useCallback(async (paymentId) => {
+    const list = (monthData.extraPayments || []).filter(p => p.id !== paymentId)
+    await updateDoc(doc(db, 'months', currentMonth), { extraPayments: list })
+  }, [monthData, currentMonth])
+
   // ── TRANSAÇÕES ──
   const saveTransactions = useCallback(async (transactions, monthKey) => {
     const key = monthKey || currentMonth
@@ -175,7 +202,7 @@ export function FinanceProvider({ children }) {
     transactions.forEach(t => { map[t.id] = t })
     const merged = Object.values(map)
     await updateDoc(doc(db, 'months', key), { transactions: merged }).catch(() =>
-      setDoc(doc(db, 'months', key), { transactions: merged, fixedBills: [], incomes: [], benefitDeposits: [], benefitExpenses: [] })
+      setDoc(doc(db, 'months', key), { transactions: merged, fixedBills: [], incomes: [], benefitDeposits: [], benefitExpenses: [], cardPayments: [], extraPayments: [] })
     )
     setAllMonths(prev => ({ ...prev, [key]: { ...prev[key], transactions: merged } }))
   }, [currentMonth, allMonths])
@@ -258,9 +285,10 @@ export function FinanceProvider({ children }) {
   const computedData = useCallback((monthKey) => {
     const key   = monthKey || currentMonth
     const mData = allMonths[key] || monthData
-    const txs   = mData.transactions || []
-    const bills = mData.fixedBills   || []
-    const incomes = mData.incomes    || []
+    const txs           = mData.transactions  || []
+    const bills         = mData.fixedBills    || []
+    const incomes       = mData.incomes       || []
+    const extraPayments = mData.extraPayments || []
 
     const totalIncome = { tereza: 0, sebastiao: 0 }
     config.incomes.forEach(inc => {
@@ -272,6 +300,8 @@ export function FinanceProvider({ children }) {
 
     const byCategory = {}
     const byPerson   = { tereza: 0, sebastiao: 0 }
+
+    // Transações de cartão
     txs.forEach(tx => {
       if (!byCategory[tx.category]) byCategory[tx.category] = { tereza: 0, sebastiao: 0, total: 0 }
       byCategory[tx.category][tx.person] = (byCategory[tx.category][tx.person] || 0) + tx.amount
@@ -279,12 +309,28 @@ export function FinanceProvider({ children }) {
       if (tx.person === 'tereza' || tx.person === 'sebastiao') byPerson[tx.person] += tx.amount
     })
 
+    // Pagamentos avulsos
+    extraPayments.forEach(ep => {
+      const amt = ep.amount || 0
+      if (!byCategory[ep.category]) byCategory[ep.category] = { tereza: 0, sebastiao: 0, total: 0 }
+      byCategory[ep.category].total += amt
+      if (ep.person === 'both') {
+        byCategory[ep.category].tereza    = (byCategory[ep.category].tereza    || 0) + amt / 2
+        byCategory[ep.category].sebastiao = (byCategory[ep.category].sebastiao || 0) + amt / 2
+        byPerson.tereza    += amt / 2
+        byPerson.sebastiao += amt / 2
+      } else if (ep.person === 'tereza' || ep.person === 'sebastiao') {
+        byCategory[ep.category][ep.person] = (byCategory[ep.category][ep.person] || 0) + amt
+        byPerson[ep.person] += amt
+      }
+    })
+
     const fixedPaid = { tereza: 0, sebastiao: 0 }
     bills.filter(b => b.paid).forEach(b => {
       const cfg = config.fixedBills.find(f => f.id === b.id)
       if (!cfg) return
       const amt = b.amount || cfg.amount
-      if (cfg.person === 'both')      { fixedPaid.tereza += amt / 2; fixedPaid.sebastiao += amt / 2 }
+      if (cfg.person === 'both')           { fixedPaid.tereza += amt / 2; fixedPaid.sebastiao += amt / 2 }
       else if (cfg.person === 'tereza')    fixedPaid.tereza    += amt
       else if (cfg.person === 'sebastiao') fixedPaid.sebastiao += amt
     })
@@ -293,7 +339,7 @@ export function FinanceProvider({ children }) {
       .filter(tx => tx.installmentTotal > 1)
       .reduce((acc, tx) => acc + (tx.installmentTotal - tx.installmentNumber) * tx.installmentAmount, 0)
 
-    return { totalIncome, byCategory, byPerson, fixedPaid, installmentDebt, txs, bills, incomes }
+    return { totalIncome, byCategory, byPerson, fixedPaid, installmentDebt, txs, bills, incomes, extraPayments }
   }, [config, allMonths, monthData, currentMonth])
 
   const value = {
@@ -302,6 +348,8 @@ export function FinanceProvider({ children }) {
     monthData, allMonths,
     loading,
     toggleFixedBill,
+    toggleCardPayment,
+    saveExtraPayment, deleteExtraPayment,
     saveTransactions, deleteTransaction, updateTransaction,
     saveIncome,
     saveSubscription, deleteSubscription, saveSubCategories,
