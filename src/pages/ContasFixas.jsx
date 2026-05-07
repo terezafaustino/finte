@@ -9,7 +9,7 @@ export default function ContasFixas() {
     config, monthData, currentMonth,
     toggleFixedBill, toggleCardPayment, setCardPaymentPerson,
     saveExtraPayment, deleteExtraPayment,
-    GENERAL_CATEGORIES,
+    GENERAL_CATEGORIES, SUBCATEGORY_TO_MAIN,
   } = useFinance()
 
   const [editAmount, setEditAmount]         = useState({})
@@ -67,9 +67,10 @@ export default function ContasFixas() {
   const grandTotal = totalExpected + totalCardExpected + totalExtra
   const grandPaid  = totalPaid + totalCardPaid + totalExtra
 
-  const catLabel = (id) => GENERAL_CATEGORIES.find(c => c.id === id)?.label || id
-  const catColor = (id) => GENERAL_CATEGORIES.find(c => c.id === id)?.color || '#94A3B8'
-  const catIcon  = (id) => GENERAL_CATEGORIES.find(c => c.id === id)?.icon  || '📋'
+  const resolveId = (id) => SUBCATEGORY_TO_MAIN[id] || id
+  const catLabel = (id) => GENERAL_CATEGORIES.find(c => c.id === resolveId(id))?.label || id
+  const catColor = (id) => GENERAL_CATEGORIES.find(c => c.id === resolveId(id))?.color || '#94A3B8'
+  const catIcon  = (id) => GENERAL_CATEGORIES.find(c => c.id === resolveId(id))?.icon  || '📋'
 
   // ── Handlers contas fixas ──
   const handleToggle = async (bill) => {
