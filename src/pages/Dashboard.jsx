@@ -44,27 +44,29 @@ export default function Dashboard() {
   // Distribuição por categoria (donut)
   const catData = useMemo(() => {
     const merged = {}
+    const resolve = (id) => SUBCATEGORY_TO_MAIN[id] || id
     // Contas fixas pagas
     ;(monthData.fixedBills || []).filter(b => b.paid).forEach(b => {
       const cfg = config.fixedBills.find(f => f.id === b.id)
       if (!cfg) return
-      const cat = cfg.category
+      const cat = resolve(cfg.category)
       merged[cat] = (merged[cat] || 0) + (b.amount || cfg.amount || 0)
     })
-    // Transações de cartão (mapeia categorias cartão → geral)
+    // Transações de cartão
     ;(monthData.transactions || []).forEach(tx => {
-      const generalCat = SUBCATEGORY_TO_MAIN[tx.category] || 'custos_fixos_essenciais'
-      merged[generalCat] = (merged[generalCat] || 0) + tx.amount
+      const cat = resolve(tx.category)
+      merged[cat] = (merged[cat] || 0) + tx.amount
     })
-    // Pagamentos avulsos (já usam GENERAL_CATEGORIES diretamente)
+    // Pagamentos avulsos
     ;(monthData.extraPayments || []).forEach(ep => {
-      merged[ep.category] = (merged[ep.category] || 0) + (ep.amount || 0)
+      const cat = resolve(ep.category)
+      merged[cat] = (merged[cat] || 0) + (ep.amount || 0)
     })
     return Object.entries(merged).map(([id, value]) => {
       const cat = GENERAL_CATEGORIES.find(c => c.id === id)
       return { name: cat?.label || id, value, color: cat?.color || '#94A3B8' }
     }).filter(c => c.value > 0).sort((a, b) => b.value - a.value)
-  }, [monthData, config, GENERAL_CATEGORIES])
+  }, [monthData, config, GENERAL_CATEGORIES, SUBCATEGORY_TO_MAIN])
 
   // Total gasto no mês
   const totalGastoTereza    = data.byPerson.tereza    + data.fixedPaid.tereza
