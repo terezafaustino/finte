@@ -24,13 +24,15 @@ export default function ContasFixas() {
   const getRecord = (id) => recorded.find(r => r.id === id)
   const isPaid    = (id) => getRecord(id)?.paid === true
 
-  const totalExpected = bills.filter(b => b.active).reduce((a, b) => a + (b.amount || 0), 0)
-  const totalPaid     = bills.filter(b => isPaid(b.id)).reduce((a, b) => {
-    const rec = getRecord(b.id)
-    return a + (rec?.amount || b.amount || 0)
-  }, 0)
-  const paidCount    = bills.filter(b => isPaid(b.id)).length
-  const pendingCount = bills.filter(b => b.active && !isPaid(b.id)).length
+  const getBillAmount = (bill) => {
+    const rec = getRecord(bill.id)
+    return rec?.amount != null ? rec.amount : (bill.amount || 0)
+  }
+  const totalExpected = bills.filter(b => b.active).reduce((a, b) => a + getBillAmount(b), 0)
+  const totalPaid     = bills.filter(b => isPaid(b.id)).reduce((a, b) => a + getBillAmount(b), 0)
+  const paidCount     = bills.filter(b => isPaid(b.id)).length
+  const pendingCount  = bills.filter(b => b.active && !isPaid(b.id)).length
+  const totalPending  = bills.filter(b => b.active && !isPaid(b.id)).reduce((a, b) => a + getBillAmount(b), 0)
 
   // ── Cartões ──
   const cards        = config.cards || []
@@ -64,8 +66,9 @@ export default function ContasFixas() {
   const totalExtra    = extraPayments.reduce((a, p) => a + (p.amount || 0), 0)
 
   // ── KPI geral ──
-  const grandTotal = totalExpected + totalCardExpected + totalExtra
-  const grandPaid  = totalPaid + totalCardPaid + totalExtra
+  const grandTotal   = totalExpected + totalCardExpected + totalExtra
+  const grandPaid    = totalPaid + totalCardPaid + totalExtra
+  const grandPending = totalPending + (totalCardExpected - totalCardPaid)
 
   const resolveId = (id) => SUBCATEGORY_TO_MAIN[id] || id
   const catLabel = (id) => GENERAL_CATEGORIES.find(c => c.id === resolveId(id))?.label || id
@@ -83,15 +86,16 @@ export default function ContasFixas() {
   }
 
   const handleAmountBlur = async (bill, value) => {
-    const val = parseFloat(value) || bill.amount
+    const raw = parseFloat(value)
+    const val = isNaN(raw) ? (bill.amount || 0) : raw
     await toggleFixedBill(bill.id, isPaid(bill.id), val)
     setEditAmount(prev => ({ ...prev, [bill.id]: undefined }))
   }
 
   // ── Handler pagamentos avulsos ──
   const handleAddPayment = async () => {
-    const amt = parseFloat(newPayment.amount)
-    if (!newPayment.label.trim() || !amt || amt <= 0) return
+    const amt = parseFloat(newPayment.amount) || 0
+    if (!newPayment.label.trim()) return
     setSaving(true)
     try {
       await saveExtraPayment({
@@ -136,10 +140,10 @@ export default function ContasFixas() {
           <div className="metric-card-value">{formatBRL(grandPaid)}</div>
           <div className="metric-card-sub">{grandTotal > 0 ? `${Math.round((grandPaid / grandTotal) * 100)}% quitado` : '—'}</div>
         </div>
-        <div className="metric-card" style={{ background: (grandTotal - grandPaid) > 0 ? 'var(--grad-orange)' : 'var(--grad-green)' }}>
+        <div className="metric-card" style={{ background: grandPending > 0 ? 'var(--grad-orange)' : 'var(--grad-green)' }}>
           <div className="metric-card-icon">⏳</div>
           <div className="metric-card-label">Pendente</div>
-          <div className="metric-card-value">{formatBRL(grandTotal - grandPaid)}</div>
+          <div className="metric-card-value">{formatBRL(grandPending)}</div>
           <div className="metric-card-sub">
             {pendingCount + cards.filter(c => !isCardPaid(c.id) && (cardTotals[c.id] || 0) > 0).length} item(s) em aberto
           </div>
